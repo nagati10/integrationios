@@ -34,6 +34,15 @@ struct AppColors {
     // MARK: - Primary Colors (Rouge Bordeaux)
     
     /// Rouge bordeaux principal (#BF124D)
+    static let primaryWine = Color(hex: 0x5A0E24)
+    
+    /// Warm burgundy - secondary color (#76153C)
+    static let secondaryBurgundy = Color(hex: 0x76153C)
+    
+    /// Energetic pink-red - for buttons & highlights (#BF124D)
+    static let accentRed = Color(hex: 0xBF124D)
+    
+    /// Rouge bordeaux principal (#BF124D) - kept for backward compatibility
     static let primaryRed = Color(hex: 0xBF124D)
     
     /// Rouge bordeaux foncé pour les backgrounds (#76153C)
@@ -62,6 +71,11 @@ struct AppColors {
     /// Gris très clair pour les backgrounds (#F5F5F5)
     static let backgroundGray = Color(hex: 0xF5F5F5)
     
+    /// Soft pastel backgrounds for sections
+    static let softPastelBlue = Color(hex: 0xE8F4F8)
+    static let softPastelPink = Color(hex: 0xFCE8ED)
+    static let softPastelGreen = Color(hex: 0xE8F8F0)
+    
     /// Gris clair pour les bordures (#CCCCCC)
     static let lightGray = Color(hex: 0xCCCCCC)
     
@@ -81,6 +95,9 @@ struct AppColors {
     static let separatorGray = Color(hex: 0xE0E0E0)
     
     // MARK: - Accent Colors (Couleurs d'accent)
+    
+    /// Light blue for balance & calm (#67B2D8) - Soft contrast color
+    static let softBlue = Color(hex: 0x67B2D8)
     
     /// Bleu clair utilisé pour les boutons et liens (#67B2D8)
     static let accentBlue = Color(hex: 0x67B2D8)
@@ -193,6 +210,38 @@ struct AppColors {
             endPoint: .trailing
         )
     }
+    
+    // MARK: - Cute Gradients (Taleb 5edma Style)
+    
+    /// Cute gradient for main buttons (energetic pink-red → warm burgundy)
+    static var cuteButtonGradient: LinearGradient {
+        LinearGradient(
+            colors: [accentRed, secondaryBurgundy],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    /// Cute soft gradient for cards (light blue → white)
+    static var cuteSoftGradient: LinearGradient {
+        LinearGradient(
+            colors: [softBlue.opacity(0.2), Color.white],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
+    /// Cute accent gradient (soft blue → pink)
+    static var cuteAccentGradient: LinearGradient {
+        LinearGradient(
+            colors: [softBlue, Color(hex: 0xFFB6C1)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+    
+    /// Soft pastel yellow for warnings (if not already defined above)
+    static let softPastelYellow = Color(hex: 0xFFFDE7)
 }
 
 // MARK: - Color Extension Helper
