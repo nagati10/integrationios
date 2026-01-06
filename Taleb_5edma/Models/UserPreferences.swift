@@ -39,26 +39,6 @@ struct UserPreferences: Codable {
         self.languageLevels = []
         self.interests = []
     }
-    
-    init(
-        educationLevel: EducationLevel?,
-        studyField: StudyField?,
-        searchTypes: [SearchType],
-        mainMotivation: Motivation?,
-        softSkills: [SoftSkill],
-        languageLevels: [LanguageLevel],
-        interests: [Interest],
-        hasSecondHobby: Bool?
-    ) {
-        self.educationLevel = educationLevel
-        self.studyField = studyField
-        self.searchTypes = searchTypes
-        self.mainMotivation = mainMotivation
-        self.softSkills = softSkills
-        self.languageLevels = languageLevels
-        self.interests = interests
-        self.hasSecondHobby = hasSecondHobby
-    }
 }
 
 // MARK: - Education Level

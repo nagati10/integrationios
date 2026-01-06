@@ -145,7 +145,22 @@ class OnboardingViewModel: ObservableObject {
             } catch {
                 await MainActor.run {
                     self.isLoading = false
-                    if let preferencesError = error as? StudentPreferencesError {
+                    
+                    // Détecter les erreurs de connexion réseau URLError
+                    if let urlError = error as? URLError {
+                        switch urlError.code {
+                        case .timedOut:
+                            self.errorMessage = "Le serveur met trop de temps à répondre. Le backend Render est probablement en veille. Veuillez réessayer dans quelques secondes ou patientez jusqu'à ce qu'il se réveille."
+                        case .notConnectedToInternet:
+                            self.errorMessage = "Aucune connexion Internet disponible. Veuillez vérifier votre connexion."
+                        case .networkConnectionLost:
+                            self.errorMessage = "Connexion réseau perdue. Le backend Render est peut-être inactif. Veuillez réessayer."
+                        case .cannotConnectToHost:
+                            self.errorMessage = "Impossible de se connecter au serveur. Vérifiez votre connexion Internet."
+                        default:
+                            self.errorMessage = "Erreur réseau: \(urlError.localizedDescription)"
+                        }
+                    } else if let preferencesError = error as? StudentPreferencesError {
                         // Si le token est expiré, nettoyer la session
                         if case StudentPreferencesError.notAuthenticated = preferencesError {
                             self.errorMessage = "Votre session a expiré. Veuillez vous reconnecter."
@@ -266,7 +281,7 @@ class OnboardingViewModel: ObservableObject {
     /// Utilisé pour pré-remplir le formulaire d'onboarding
     func loadPreferencesForEditing() async {
         // Essayer d'abord depuis le backend
-        if let preferences = await getPreferencesFromBackend() {
+        if await getPreferencesFromBackend() != nil {
             print("✅ Préférences chargées depuis le backend")
             return
         }

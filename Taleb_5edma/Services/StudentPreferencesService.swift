@@ -19,10 +19,11 @@ class StudentPreferencesService: ObservableObject {
     }
     
     /// Session URL pour les requêtes réseau
+    /// Timeouts augmentés pour permettre au backend Render de se réveiller
     private let session: URLSession = {
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = APIConfig.requestTimeout
-        configuration.timeoutIntervalForResource = APIConfig.requestTimeout
+        configuration.timeoutIntervalForRequest = 60.0 // Augmenté de 30s à 60s
+        configuration.timeoutIntervalForResource = 120.0 // Double du request timeout
         configuration.waitsForConnectivity = true
         configuration.allowsCellularAccess = true
         return URLSession(configuration: configuration)
@@ -283,7 +284,7 @@ class StudentPreferencesService: ObservableObject {
         
         print("🔵 Delete My Student Preferences - URL: \(url.absoluteString)")
         
-        let (data, response) = try await session.data(for: request)
+        let (_, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw StudentPreferencesError.invalidResponse

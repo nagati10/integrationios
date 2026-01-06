@@ -90,6 +90,28 @@ struct SignUpView: View {
                                     isSecure: true,
                                     showPasswordToggle: true
                                 )
+                                
+                                // Role Selection
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Select your role")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(AppColors.darkGray)
+                                    
+                                    HStack(spacing: 15) {
+                                        RoleButton(
+                                            title: "Etudiant",
+                                            isSelected: viewModel.signUpRole == "user",
+                                            action: { viewModel.signUpRole = "user" }
+                                        )
+                                        
+                                        RoleButton(
+                                            title: "Entreprise",
+                                            isSelected: viewModel.signUpRole == "entreprise",
+                                            action: { viewModel.signUpRole = "entreprise" }
+                                        )
+                                    }
+                                }
+                                .padding(.top, 5)
                             }
                             .padding(.horizontal, 24)
                             .padding(.top, 30)
@@ -127,11 +149,6 @@ struct SignUpView: View {
                 }
             }
         }
-        .alert("Erreur", isPresented: $viewModel.showError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(viewModel.errorMessage ?? "Une erreur est survenue")
-        }
         // ⚠️ Note: L'inscription connecte automatiquement l'utilisateur
         // Plus besoin de rediriger vers VerificationView
     }
@@ -139,5 +156,37 @@ struct SignUpView: View {
 
 #Preview {
     SignUpView(viewModel: LoginViewModel())
+}
+
+/// Composant pour le bouton de sélection de rôle
+struct RoleButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(isSelected ? .white : AppColors.darkGray)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    ZStack {
+                        if isSelected {
+                            AppColors.redGradient
+                        } else {
+                            Color.white
+                        }
+                    }
+                )
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(isSelected ? Color.clear : AppColors.lightGray, lineWidth: 1)
+                )
+                .shadow(color: isSelected ? AppColors.primaryRed.opacity(0.3) : Color.clear, radius: 5, x: 0, y: 3)
+        }
+    }
 }
 

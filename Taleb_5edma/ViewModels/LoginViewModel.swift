@@ -59,6 +59,9 @@ class LoginViewModel: ObservableObject {
     /// Indique si la confirmation du mot de passe est visible
     @Published var isSignUpConfirmPasswordVisible: Bool = false
     
+    /// Rôle sélectionné pour l'inscription ("user" ou "entreprise")
+    @Published var signUpRole: String = "user"
+    
     // État de vérification
     /// Code OTP saisi par l'utilisateur
     @Published var verificationCode: String = ""
@@ -81,7 +84,12 @@ class LoginViewModel: ObservableObject {
     
     // Navigation
     /// Écran d'authentification actuellement affiché
-    @Published var currentScreen: AuthScreen = .login
+    @Published var currentScreen: AuthScreen = .login {
+        didSet {
+            resetLoginFields()
+            resetSignUpFields()
+        }
+    }
     
     /// Indique si l'utilisateur est authentifié avec succès
     @Published var isAuthenticated: Bool = false
@@ -93,8 +101,14 @@ class LoginViewModel: ObservableObject {
     
     // MARK: - Initialization
     
-    nonisolated init(authService: AuthService = AuthService()) {
+    init(authService: AuthService) {
         self.authService = authService
+    }
+    
+    /// Initialiseur par défaut qui crée un nouveau AuthService
+    /// Utilisé quand aucun AuthService n'est fourni
+    convenience init() {
+        self.init(authService: AuthService())
     }
     
     // MARK: - Login Methods
@@ -146,6 +160,18 @@ class LoginViewModel: ObservableObject {
             isAuthenticated = authService.isAuthenticated
             
             print("✅ Login réussi - Utilisateur: \(authResponse.user.email), Token présent: \(authService.authToken != nil)")
+            print("🏢 Login - is_Organization from response: \(authResponse.user.is_Organization ?? false)")
+            
+            // Fetch complete user profile to get is_Organization and other fields
+            // The login response might not include all user fields
+            Task {
+                do {
+                    let fullProfile = try await authService.getUserProfile()
+                    print("✅ Profile complet récupéré - is_Organization: \(fullProfile.is_Organization ?? false)")
+                } catch {
+                    print("⚠️ Erreur lors de la récupération du profil: \(error.localizedDescription)")
+                }
+            }
         } catch {
             handleError(error)
         }
@@ -214,6 +240,8 @@ class LoginViewModel: ObservableObject {
                 email: signUpEmail,
                 password: signUpPassword,
                 contact: signUpContactNumber,  // Le champ "contact" correspond au numéro de téléphone
+                role: "user",                  // On force le rôle "user" pour passer la validation backend
+                is_Organization: signUpRole == "entreprise", // On utilise ce champ pour les entreprises
                 image: nil  // Optionnel
             )
             
@@ -275,6 +303,7 @@ class LoginViewModel: ObservableObject {
         email = ""
         password = ""
         errorMessage = nil
+        showError = false
     }
     
     /// Réinitialise les champs d'inscription
@@ -284,7 +313,9 @@ class LoginViewModel: ObservableObject {
         signUpContactNumber = ""
         signUpPassword = ""
         signUpConfirmPassword = ""
+        signUpRole = "user"
         errorMessage = nil
+        showError = false
     }
     
     // MARK: - Google Sign-In Methods

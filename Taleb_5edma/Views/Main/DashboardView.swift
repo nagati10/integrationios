@@ -1,401 +1,259 @@
-//
-//  DashboardView.swift
-//  Taleb_5edma
-//
-//  Created by Apple on 10/11/2025.
-//
-
-//
-//  DashboardView.swift
-//  Taleb_5edma
-//
-//  Created by Apple on 10/11/2025.
-//
 
 import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject var authService: AuthService
     
-    // États locaux pour piloter la navigation et les affichages contextuels de la vue
+    // Navigation & UI State
     @State private var selectedTab = 0
     @State private var showingNotifications = false
     @State private var showingProfile = false
     @State private var showingMenu = false
-    @State private var isExamModeEnabled = false
-    @State private var showingCalendar = false
-    @State private var showingRoutineBalance = false
     
-    // ViewModels pour l'analyse IA
-    @StateObject private var evenementViewModel = EvenementViewModel()
-    @StateObject private var availabilityViewModel = AvailabilityViewModel()
-    @StateObject private var routineBalanceViewModel = RoutineBalanceViewModel()
+    // Sheet States
+    @State private var showingCreateOffer = false
+    @State private var showingFaceVerification = false
+    @State private var showingMaps = false
+    @State private var selectedOffre: Offre?
     
-    // Données de démonstration
-    private let notificationCount = 3
-    private let jobsHours: Double = 15
-    private let coursesHours: Double = 5
-    private let otherHours: Double = 2
-    private let maxHours: Double = 20
+    // Search & Filter
+    @State private var searchText = ""
+    @State private var selectedType: OfferTypeToggle.OfferType = .occasionnel
     
-    private var totalHours: Double {
-        jobsHours + coursesHours + otherHours
+    // Data
+    @StateObject private var offreViewModel = OffreViewModel()
+    
+    var filteredOffres: [Offre] {
+        var filtered = offreViewModel.offres
+        
+        // Filter by Type logic
+        switch selectedType {
+        case .professionnel:
+            // User requested: Professional -> freelance and stage
+            filtered = filtered.filter { 
+                let type = $0.jobType?.lowercased() ?? ""
+                return type == "freelance" || type == "stage"
+            }
+        case .occasionnel:
+            // Implied: Occasionnel -> job
+            filtered = filtered.filter { 
+                let type = $0.jobType?.lowercased() ?? ""
+                return type == "job"
+            }
+        }
+        
+        if !searchText.isEmpty {
+            filtered = filtered.filter { offre in
+                offre.title.localizedCaseInsensitiveContains(searchText) ||
+                offre.company.localizedCaseInsensitiveContains(searchText) ||
+                offre.location.address.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        
+        return filtered
     }
-    
-    // Nom d'utilisateur depuis le service d'authentification
-    private var userName: String {
-        // Récupère le prénom (premier mot) du nom de l'utilisateur
-        let fullName = authService.currentUser?.nom ?? "Étudiant"
-        return fullName.components(separatedBy: " ").first ?? "Étudiant"
-    }
-    
-    // Événements du jour
-    private let todayEvents: [DailyEvent] = [
-        DailyEvent(
-            id: "1",
-            title: "Assistant de chantier",
-            time: "09:00 - 13:00",
-            type: .job,
-            location: "Centre ville Tunis"
-        ),
-        DailyEvent(
-            id: "2",
-            title: "Mathématiques",
-            time: "14:00 - 16:00",
-            type: .course,
-            location: "Salle A101"
-        )
-    ]
     
     var body: some View {
-        // TabView principal qui regroupe les différentes sections majeures de l'application
-        TabView(selection: $selectedTab) {
-            // Écran 1 - Dashboard/Accueil
-            homeScreen
-            .tag(0)
+        ZStack(alignment: .bottom) {
+            Color(hex: 0xF9F9F9).ignoresSafeArea()
             
-            // Écran 2 - Calendrier
-            NavigationView {
-                MainContentWrapper(
-                    showingNotifications: $showingNotifications,
-                    showingProfile: $showingProfile,
-                    showingMenu: $showingMenu,
-                    notificationCount: notificationCount
-                ) {
-                CalendarView()
+            // Content based on Tab
+            Group {
+                switch selectedTab {
+                case 0:
+                    if authService.currentUser?.is_Organization == true {
+                        EnterpriseHomeView()
+                    } else {
+                        homeFeedView
+                    }
+                case 1:
+                    FavoritesView(onBrowseOffers: { selectedTab = 0 })
+                case 2:
+                    MyOffresView()
+                case 3:
+                    ProfileView(authService: authService)
+                default:
+                    homeFeedView
                 }
             }
-            .tabItem {
-                Image(systemName: "calendar")
-                Text("Calendrier")
-            }
-            .tag(1)
+            .padding(.bottom, 80) // Space for bottom bar
             
-            // Écran 3 - Disponibilités
-            NavigationView {
-                MainContentWrapper(
-                    showingNotifications: $showingNotifications,
-                    showingProfile: $showingProfile,
-                    showingMenu: $showingMenu,
-                    notificationCount: notificationCount
-                ) {
-                AvailabilityView()
-                }
-            }
-            .tabItem {
-                Image(systemName: "clock.fill")
-                Text("Dispo")
-            }
-            .tag(2)
-            
-            // Écran 4 - Offres d'emploi
-            NavigationView {
-                MainContentWrapper(
-                    showingNotifications: $showingNotifications,
-                    showingProfile: $showingProfile,
-                    showingMenu: $showingMenu,
-                    notificationCount: notificationCount
-                ) {
-                    OffersView()
-                }
-            }
-            .tabItem {
-                Image(systemName: "briefcase.fill")
-                Text("Offres")
-            }
-            .tag(3)
-            
-            // Écran 5 - Matching IA
-            NavigationView {
-                MainContentWrapper(
-                    showingNotifications: $showingNotifications,
-                    showingProfile: $showingProfile,
-                    showingMenu: $showingMenu,
-                    notificationCount: notificationCount
-                ) {
-                    MatchingAnimatedView(availabilityViewModel: availabilityViewModel)
-                }
-            }
-            .tabItem {
-                Image(systemName: "sparkles")
-                Text("Matching")
-            }
-            .tag(4)
-            
-            // Écran 6 - Mon Planning (Analyse IA)
-            NavigationView {
-                MainContentWrapper(
-                    showingNotifications: $showingNotifications,
-                    showingProfile: $showingProfile,
-                    showingMenu: $showingMenu,
-                    notificationCount: notificationCount
-                ) {
-                    MonPlanningView(
-                        evenementViewModel: evenementViewModel,
-                        availabilityViewModel: availabilityViewModel
-                    )
-                }
-            }
-            .tabItem {
-                Image(systemName: "calendar.badge.clock")
-                Text("Planning")
-            }
-            .tag(5)
+            // Custom Tab Bar
+            CustomTabBar(selectedTab: $selectedTab, onAddTapped: {
+                // Instead of directly showing CreateOffer, show FaceVerification
+                showingFaceVerification = true
+            })
         }
-        .accentColor(AppColors.primaryRed)
-        .sheet(isPresented: $showingNotifications) {
-            // TODO: Créer NotificationsView
-            Text("Notifications")
+        .edgesIgnoringSafeArea(.bottom)
+        .onAppear {
+            Task {
+                await offreViewModel.loadOffres()
+            }
         }
         .sheet(isPresented: $showingMenu) {
             MenuView(selectedTab: $selectedTab)
-                .environmentObject(authService)
         }
-        .sheet(isPresented: $showingProfile) {
-            ProfileView(authService: authService)
+        .sheet(isPresented: $showingCreateOffer, onDismiss: {
+            Task {
+                await offreViewModel.loadOffres()
+            }
+        }) {
+            CreateOfferView()
         }
-        .onAppear {
-            // Configuration de l'apparence de la tab bar
-            let appearance = UITabBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = UIColor(AppColors.white)
-            
-            UITabBar.appearance().standardAppearance = appearance
-            UITabBar.appearance().scrollEdgeAppearance = appearance
+        .sheet(item: $selectedOffre) { offre in
+            OffreDetailView(offre: offre, viewModel: offreViewModel)
+        }
+        .sheet(isPresented: $showingMaps) {
+            MapsViewWrapper()
+        }
+        .sheet(isPresented: $showingFaceVerification) {
+            FaceVerificationView {
+                // On Success
+                showingFaceVerification = false
+                // Delay slightly to allow dismissal animation before presenting new sheet
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showingCreateOffer = true
+                }
+            }
         }
     }
     
-    // MARK: - Écran 1: Dashboard/Accueil
-    
-    private var homeScreen: some View {
-        ZStack {
-            AppColors.backgroundGray
-                .ignoresSafeArea()
+    // MARK: - Home Feed View
+    private var homeFeedView: some View {
+        VStack(spacing: 0) {
+            // Header
+            HomeHeaderView(
+                showingMenu: $showingMenu,
+                showingNotifications: $showingNotifications,
+                showingProfile: $showingProfile,
+                notificationCount: 3
+            )
             
-            VStack(spacing: 0) {
-                // Header fixe avec menu, notifications et profil
-                DashboardHeaderView(
-                    showingNotifications: $showingNotifications,
-                    showingProfile: $showingProfile,
-                    showingMenu: $showingMenu,
-                    notificationCount: notificationCount
-                )
-                
-                // Contenu principal avec ScrollView
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Section de bienvenue
-                        welcomeSection
-                        
-                        // Card avec graphique en donut pour les statistiques d'heures
-                        WorkStatsCard(
-                            jobsHours: jobsHours,
-                            coursesHours: coursesHours,
-                            otherHours: otherHours,
-                            totalHours: totalHours
-                        )
-                        
-                        // Menu rapide avec icônes d'offres
-                        QuickOffersMenu { category in
-                            // Navigation vers les offres avec filtre de catégorie
-                            selectedTab = 3 // Aller à l'onglet Offres
-                            // TODO: Implémenter le filtrage par catégorie
-                            print("Catégorie sélectionnée: \(category)")
-                        }
-                        
-                        // Card agenda avec événements du jour
-                        DailyAgendaCard(events: todayEvents) { event in
-                            // TODO: Navigation vers détails de l'événement
-                            print("Événement tapé: \(event.title)")
-                        }
-                        
-                        // Toggle Mode Examens
-                        ExamModeToggle(isEnabled: $isExamModeEnabled) { isEnabled in
-                            // TODO: Activer/désactiver le mode examens
-                            print("Mode examens: \(isEnabled ? "activé" : "désactivé")")
-                        }
-                        
-                        // Card Analyse IA - Équilibre de vie
-                        RoutineBalanceCard(
-                            viewModel: routineBalanceViewModel,
-                            onTap: {
-                                showingRoutineBalance = true
-                            }
-                        )
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Search Bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                        TextField("Rechercher un job, stage, freelance...", text: $searchText)
                     }
                     .padding()
-                }
-            }
-        }
-        .navigationBarHidden(true)
-        .onAppear {
-            // Charger les données nécessaires pour l'analyse
-            Task {
-                // Toujours recharger pour avoir les données les plus récentes
-                await evenementViewModel.loadEvenements()
-                await availabilityViewModel.loadDisponibilites()
-                
-                // Mettre à jour les références dans routineBalanceViewModel
-                // Cela déclenchera automatiquement les observers pour recharger l'analyse
-                routineBalanceViewModel.evenementViewModel = evenementViewModel
-                routineBalanceViewModel.availabilityViewModel = availabilityViewModel
-                
-                // Lancer l'analyse initiale avec les données réelles chargées
-                await routineBalanceViewModel.analyserRoutine(
-                    evenements: evenementViewModel.evenements,
-                    disponibilites: availabilityViewModel.disponibilites
-                )
-            }
-        }
-        .onChange(of: evenementViewModel.evenements.count) { oldCount, newCount in
-            // Recharger l'analyse automatiquement quand les événements changent
-            if newCount != oldCount {
-                Task {
-                    await routineBalanceViewModel.analyserRoutine(
-                        evenements: evenementViewModel.evenements,
-                        disponibilites: availabilityViewModel.disponibilites
-                    )
-                }
-            }
-        }
-        .sheet(isPresented: $showingRoutineBalance) {
-            NavigationView {
-                RoutineBalanceView(
-                    evenementViewModel: evenementViewModel,
-                    availabilityViewModel: availabilityViewModel
-                )
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Fermer") {
-                            showingRoutineBalance = false
+                    .background(Color.white)
+                    .cornerRadius(25)
+                    .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+                    .padding(.horizontal)
+                    
+                    // Filters (Chips)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            HomeFilterChip(title: "Tous les types", isSelected: false, action: {})
+                            HomeFilterChip(title: "Toutes les villes", isSelected: false, action: {})
+                            
+                            // Map Button
+                            Button(action: {
+                                showingMaps = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "map.fill")
+                                        .font(.system(size: 12))
+                                    Text("Map")
+                                        .font(.system(size: 14))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(Color.white)
+                                .cornerRadius(20)
+                                .foregroundColor(AppColors.primaryRed)
+                                .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+                            }
+
+                            Text("Filtre")
+                                .font(.system(size: 14))
+                                .foregroundColor(.gray)
                         }
-                        .foregroundColor(AppColors.primaryRed)
+                        .padding(.horizontal)
                     }
                 }
+                    
+                    // Promo Banner
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(LinearGradient(gradient: Gradient(colors: [Color(hex: 0x6A4C93), Color(hex: 0x8D6E63)]), startPoint: .leading, endPoint: .trailing))
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Image(systemName: "sparkles")
+                                        .foregroundColor(.white)
+                                    Text("Nouvelles opportunités")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                                
+                                Text("\(offreViewModel.offres.count) offres pour vous")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(.white)
+                                .onTapGesture {
+                                    Task { await offreViewModel.loadOffres() }
+                                }
+                        }
+                        .padding()
+                    }
+                    .frame(height: 80)
+                    .padding(.horizontal)
+                    
+                    // "Type d'offre" with Toggle
+                    VStack(spacing: 12) {
+                        Text("Type d'offre")
+                            .font(.system(size: 16, weight: .semibold))
+                            .padding(.top, 8)
+                        
+                        OfferTypeToggle(selectedType: $selectedType)
+                    }
+                    
+                    // Offers List
+                    LazyVStack(spacing: 16) {
+                        ForEach(filteredOffres) { offre in
+                            OffreCardView(offre: offre, onCardClick: {
+                                selectedOffre = offre
+                            })
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 20) 
+                }
+                .padding(.top, 16)
             }
         }
     }
+
+
+// Simple Chip for this view if not already global
+struct HomeFilterChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
     
-    // MARK: - Home Content Sections
-    
-    private var welcomeSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    var body: some View {
+        Button(action: action) {
             HStack {
-                Text("Bonjour, \(userName) 👋")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppColors.black)
-                    
-                    Spacer()
+                Text(title)
+                    .font(.system(size: 14))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10))
             }
-            
-            Text("Trouvez le job parfait pour votre emploi du temps")
-                .font(.subheadline)
-                .foregroundColor(AppColors.mediumGray)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.white)
+            .cornerRadius(20)
+            .foregroundColor(.black)
+            .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         }
-        .padding(.vertical, 8)
-        }
-    
-                 }
-
-
-// MARK: - Données d'exemple
-
-let sampleJobs = [
-    Job(
-        id: "1",
-        title: "Assistant de chantier",
-        company: "BTP Tunis",
-        location: "Centre ville Tunis",
-        salary: 105,
-        duration: "7j",
-        schedule: "Jour",
-        shareCount: 20,
-        isPopular: true,
-        isFavorite: false,
-        latitude: 36.8065,
-        longitude: 10.1815
-    ),
-    Job(
-        id: "2",
-        title: "Technicien support informatique",
-        company: "Tech Solutions",
-        location: "Ariana",
-        salary: 95,
-        duration: "3j",
-        schedule: "Nuit",
-        shareCount: 20,
-        isPopular: true,
-        isFavorite: false,
-        latitude: 36.8625,
-        longitude: 10.1956
-    ),
-    Job(
-        id: "3",
-        title: "Assistant marketing digital / CRM",
-        company: "Digital Agency",
-        location: "Lac 1",
-        salary: 76,
-        duration: "2j",
-        schedule: "Jour",
-        shareCount: 20,
-        isPopular: false,
-        isFavorite: false,
-        latitude: 36.8389,
-        longitude: 10.2417
-    ),
-    Job(
-        id: "4",
-        title: "Employé polyvalent de restaurant",
-        company: "Restaurant Le Parisien",
-        location: "Lafayette",
-        salary: 65,
-        duration: "7j",
-        schedule: "Jour",
-        shareCount: 20,
-        isPopular: false,
-        isFavorite: false,
-        latitude: 36.8065,
-        longitude: 10.1815
-    ),
-    Job(
-        id: "5",
-        title: "Livreur / Livreuse",
-        company: "Fast Delivery",
-        location: "Tunis",
-        salary: 57,
-        duration: "5j",
-        schedule: "Nuit",
-        shareCount: 20,
-        isPopular: false,
-        isFavorite: false,
-        latitude: 36.8008,
-        longitude: 10.1800
-    )
-]
-
-#Preview {
-    DashboardView()
-        .environmentObject(AuthService())
+    }
 }

@@ -68,15 +68,52 @@ class OffreService: ObservableObject {
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-            if let date = formatter.date(from: dateString) {
+            
+            // Try multiple date formats
+            let formatters: [DateFormatter] = [
+                {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+                    formatter.locale = Locale(identifier: "en_US_POSIX")
+                    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                    return formatter
+                }(),
+                {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+                    formatter.locale = Locale(identifier: "en_US_POSIX")
+                    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                    return formatter
+                }(),
+                {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd"
+                    formatter.locale = Locale(identifier: "en_US_POSIX")
+                    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                    return formatter
+                }()
+            ]
+            
+            // Also try ISO8601DateFormatter
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            isoFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+            
+            if let date = isoFormatter.date(from: dateString) {
                 return date
             }
+            
+            // Try the custom formatters
+            for formatter in formatters {
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+            }
+            
+            // If all else fails, throw an error
             throw DecodingError.dataCorruptedError(
                 in: container,
-                debugDescription: "Format de date invalide: \(dateString)"
+                debugDescription: "Cannot decode date: \(dateString)"
             )
         }
         return decoder
@@ -241,6 +278,14 @@ class OffreService: ObservableObject {
         
         let offre = try makeJSONDecoder().decode(Offre.self, from: data)
         print("✅ Create Offre - Success: \(offre.title), ID: \(offre.id)")
+        if let images = offre.images, !images.isEmpty {
+            print("🖼️ Create Offre - Images retournées: \(images)")
+            for (index, imagePath) in images.enumerated() {
+                print("   Image[\(index)]: '\(imagePath)'")
+            }
+        } else {
+            print("⚠️ Create Offre - Aucune image retournée dans la réponse")
+        }
         return offre
     }
     
@@ -262,6 +307,11 @@ class OffreService: ObservableObject {
         
         print("🔵 Get All Offres - Status Code: \(httpResponse.statusCode)")
         
+        // Log the raw response for debugging
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("🔵 Get All Offres - Raw Response: \(responseString)")
+        }
+        
         guard (200...299).contains(httpResponse.statusCode) else {
             if httpResponse.statusCode == 401 {
                 throw OffreError.notAuthenticated
@@ -269,9 +319,15 @@ class OffreService: ObservableObject {
             throw OffreError.serverError(httpResponse.statusCode)
         }
         
-        let offres = try makeJSONDecoder().decode([Offre].self, from: data)
-        print("✅ Get All Offres - Success: \(offres.count) offres")
-        return offres
+        do {
+            let offres = try makeJSONDecoder().decode([Offre].self, from: data)
+            print("✅ Get All Offres - Success: \(offres.count) offres")
+            return offres
+        } catch {
+            print("🔴 Get All Offres - Decoding Error: \(error)")
+            print("🔴 Error details: \(error.localizedDescription)")
+            throw error
+        }
     }
     
     /// Récupère une offre par ID
@@ -488,6 +544,20 @@ class OffreService: ObservableObject {
         }
         
         let offres = try makeJSONDecoder().decode([Offre].self, from: data)
+        
+        // Log des images pour débogage
+        print("🔵 Get My Offres - Nombre d'offres: \(offres.count)")
+        for offre in offres {
+            if let images = offre.images, !images.isEmpty {
+                print("🖼️ Offre '\(offre.title)' - Images: \(images)")
+                for (index, imagePath) in images.enumerated() {
+                    print("   Image[\(index)]: '\(imagePath)'")
+                }
+            } else {
+                print("⚠️ Offre '\(offre.title)' - Aucune image")
+            }
+        }
+        
         return offres
     }
     

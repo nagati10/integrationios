@@ -145,7 +145,7 @@ struct AvailabilityView: View {
                     },
                     onDelete: { disponibiliteId in
                         Task {
-                            await viewModel.deleteDisponibilite(disponibiliteId)
+                            _ = await viewModel.deleteDisponibilite(disponibiliteId)
                             await viewModel.loadDisponibilites()
                         }
                     },

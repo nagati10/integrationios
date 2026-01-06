@@ -2,239 +2,249 @@
 //  OTPService.swift
 //  Taleb_5edma
 //
-//  Created by ChatGPT on 13/11/2025.
+//  Created for OTP email sending functionality
 //
 
 import Foundation
+import Combine
 
-/// Service dédié à la génération et à la validation des OTP (One Time Password)
-/// Cette implémentation reste 100% côté client pour que tu puisses tester le flux complet
-/// avant d'intégrer un vrai fournisseur d'email / SMS (Twilio, Firebase, SendGrid, etc.).
-/// ⚠️ En production, déplace impérativement la génération/validation côté serveur.
-final class OTPService {
-    
-    // MARK: - Nested types
-    
-    /// Erreurs spécifiques au service OTP afin d'afficher des messages clairs à l'utilisateur.
-    enum OTPError: LocalizedError {
-        case emailNotFound
-        case tooManyRequests
-        case invalidCode
-        case codeExpired
-        case providerError(String)
-        case networkError
-        
-        var errorDescription: String? {
-            switch self {
-            case .emailNotFound:
-                return "Aucun compte n'est associé à cet email."
-            case .tooManyRequests:
-                return "Trop de demandes ont été effectuées. Réessaie dans quelques minutes."
-            case .invalidCode:
-                return "Le code saisi est incorrect."
-            case .codeExpired:
-                return "Le code a expiré. Demande un nouveau code."
-            case .providerError(let message):
-                return "Impossible d'envoyer le code: \(message)"
-            case .networkError:
-                return "Impossible de contacter le serveur. Vérifie ta connexion internet."
-            }
-        }
-    }
-    
-    /// Structure interne qui mémorise l'OTP et son expiration pour un email donné.
-    private struct OTPEntry {
-        let code: String
-        let expirationDate: Date
-        var attempts: Int
-    }
-    
-    /// Acteur responsable du stockage thread-safe des OTP générés localement.
-    private actor OTPStore {
-        private var store: [String: OTPEntry] = [:]
-        
-        func save(_ entry: OTPEntry, for email: String) {
-            store[email.lowercased()] = entry
-        }
-        
-        func get(for email: String) -> OTPEntry? {
-            store[email.lowercased()]
-        }
-        
-        func remove(for email: String) {
-            store[email.lowercased()] = nil
-        }
-    }
-    
-    /// Protocole permettant de brancher facilement un vrai fournisseur d'envoi d'OTP.
-    /// Par défaut on fournit une implémentation qui log le code dans la console.
-    protocol OTPProvider {
-        func send(code: String, to email: String) async throws
-    }
-    
-    /// Implémentation de référence : elle n'envoie rien et se contente de logger le code.
-    /// Très utile pour le développement local.
-    struct ConsoleOTPProvider: OTPProvider {
-        func send(code: String, to email: String) async throws {
-            print("📩 OTP pour \(email): \(code)")
-        }
-    }
+/// Service pour gérer l'envoi d'OTP par email via EmailJS
+class OTPService: ObservableObject {
     
     // MARK: - Properties
     
-    private let emailVerifier: EmailVerifier
-    private let provider: OTPProvider
-    private let otpStore = OTPStore()
+    /// Mode test - si true, simule l'envoi sans faire de vraie requête
+    var testMode: Bool = true
     
-    /// Durée de validité du code (5 minutes par défaut)
-    private let codeLifetime: TimeInterval = 5 * 60
-    /// Nombre maximum de tentatives avant d'invalider le code
-    private let maxAttempts = 5
-    /// Délai minimum entre deux envois (pour éviter le spam du même email)
-    private let resendCooldown: TimeInterval = 45
+    /// Configuration EmailJS
+    private let emailJSEndpoint = "https://api.emailjs.com/api/v1.0/email/send"
+    private let serviceId = "service_3gjaqxq"
+    private let templateId = "template_nl0r1z6"
+    private let userId = "2z8qOtomdqeaLx0uB"
     
-    /// Mémorise la dernière date d'envoi afin d'appliquer le cooldown.
-    private var lastSentDates: [String: Date] = [:]
+    // MARK: - OTP Generation
     
-    // MARK: - Initialisation
-    
-    init(
-        emailVerifier: EmailVerifier = DefaultEmailVerifier(),
-        provider: OTPProvider = ConsoleOTPProvider()
-    ) {
-        self.emailVerifier = emailVerifier
-        self.provider = provider
+    /// Génère un code OTP à 4 chiffres
+    func generateOTP() -> String {
+        return String(format: "%04d", Int.random(in: 1000...9999))
     }
     
-    // MARK: - Public API
+    /// Calcule le temps d'expiration (15 minutes à partir de maintenant)
+    func getExpiryTime() -> String {
+        let calendar = Calendar.current
+        guard let expiryDate = calendar.date(byAdding: .minute, value: 15, to: Date()) else {
+            return ""
+        }
+        
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.dateFormat = "hh:mm a"
+        return formatter.string(from: expiryDate)
+    }
     
-    /// Vérifie que l'email existe côté backend avant d'autoriser la génération d'un OTP.
-    func verifyEmailExists(_ email: String) async throws {
-        do {
-            let exists = try await emailVerifier.emailExists(email)
-            guard exists else {
-                throw OTPError.emailNotFound
+    // MARK: - OTP Storage
+    
+    /// Sauvegarde l'OTP localement
+    func saveOTPLocally(_ otp: String) {
+        UserDefaults.standard.set(otp, forKey: "forgotPasswordOTP")
+        print("💾 OTP sauvegardé localement: \(otp)")
+    }
+    
+    /// Récupère l'OTP sauvegardé localement
+    func getSavedOTP() -> String? {
+        return UserDefaults.standard.string(forKey: "forgotPasswordOTP")
+    }
+    
+    /// Supprime l'OTP sauvegardé
+    func clearSavedOTP() {
+        UserDefaults.standard.removeObject(forKey: "forgotPasswordOTP")
+    }
+    
+    /// Sauvegarde l'email localement
+    func saveEmailLocally(_ email: String) {
+        UserDefaults.standard.set(email, forKey: "forgotPasswordEmail")
+        print("💾 Email sauvegardé localement: \(email)")
+    }
+    
+    /// Récupère l'email sauvegardé localement
+    func getSavedEmail() -> String? {
+        return UserDefaults.standard.string(forKey: "forgotPasswordEmail")
+    }
+    
+    /// Supprime l'email sauvegardé
+    func clearSavedEmail() {
+        UserDefaults.standard.removeObject(forKey: "forgotPasswordEmail")
+    }
+    
+    // MARK: - Send OTP
+    
+    /// Envoie un OTP par email
+    /// - Parameters:
+    ///   - email: L'adresse email du destinataire
+    ///   - completion: Callback avec le résultat (succès ou erreur)
+    func sendOTPEmail(email: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        let otp = generateOTP()
+        let expiryTime = getExpiryTime()
+        
+        print("🟣 sendOTPEmail: Starting with email: \(email)")
+        print("🟣 Generated OTP: \(otp)")
+        print("🟣 Test Mode: \(testMode)")
+        
+        // Sauvegarder localement
+        saveOTPLocally(otp)
+        saveEmailLocally(email)
+        
+        if testMode {
+            print("🟡 TEST MODE - Simulating OTP send to \(email)")
+            // Simuler un délai de 2 secondes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                print("🟢 TEST MODE - Success (simulated)")
+                completion(.success(()))
             }
-        } catch let error as OTPError {
-            throw error
-        } catch {
-            throw OTPError.networkError
+        } else {
+            sendRealOTPEmail(email: email, otp: otp, expiryTime: expiryTime, completion: completion)
         }
     }
     
-    /// Génère un OTP, le stocke localement avec une date d'expiration et le transmet via le provider.
-    func requestOTP(for email: String) async throws {
-        try await verifyEmailExists(email)
+    /// Envoie réellement l'OTP via EmailJS API
+    private func sendRealOTPEmail(email: String, otp: String, expiryTime: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        print("🔵 REAL MODE - Sending actual OTP to \(email)")
         
-        // Applique le cooldown pour éviter l'abus d'envois
-        if let lastSent = lastSentDates[email.lowercased()],
-           Date().timeIntervalSince(lastSent) < resendCooldown {
-            throw OTPError.tooManyRequests
+        guard let url = URL(string: emailJSEndpoint) else {
+            completion(.failure(OTPError.invalidURL))
+            return
         }
         
-        let code = generateOTPCode()
-        let entry = OTPEntry(
-            code: code,
-            expirationDate: Date().addingTimeInterval(codeLifetime),
-            attempts: 0
-        )
+        // Préparer le body JSON
+        let requestBody: [String: Any] = [
+            "service_id": serviceId,
+            "template_id": templateId,
+            "user_id": userId,
+            "template_params": [
+                "to_send": email,
+                "passcode": otp,
+                "time": expiryTime
+            ]
+        ]
         
-        await otpStore.save(entry, for: email)
-        lastSentDates[email.lowercased()] = Date()
-        
-        do {
-            try await provider.send(code: code, to: email)
-        } catch {
-            throw OTPError.providerError(error.localizedDescription)
-        }
-    }
-    
-    /// Valide un OTP: on vérifie sa présence, son expiration et on actualise le nombre de tentatives.
-    func validateOTP(_ code: String, for email: String) async throws {
-        guard var entry = await otpStore.get(for: email) else {
-            throw OTPError.invalidCode
-        }
-        
-        guard Date() < entry.expirationDate else {
-            await otpStore.remove(for: email)
-            throw OTPError.codeExpired
-        }
-        
-        guard entry.attempts < maxAttempts else {
-            await otpStore.remove(for: email)
-            throw OTPError.tooManyRequests
-        }
-        
-        if entry.code != code {
-            entry.attempts += 1
-            await otpStore.save(entry, for: email)
-            throw OTPError.invalidCode
-        }
-        
-        // Succès : on supprime le code pour éviter toute réutilisation.
-        await otpStore.remove(for: email)
-    }
-    
-    // MARK: - Helpers
-    
-    /// Génère un code à 6 chiffres. Ajuste la longueur si tu préfères 4 ou 8 chiffres.
-    private func generateOTPCode() -> String {
-        let range = 0..<1_000_000
-        let randomNumber = Int.random(in: range)
-        return String(format: "%06d", randomNumber)
-    }
-}
-
-// MARK: - Email verification
-
-/// Protocole pour isoler l'appel réseau qui vérifie l'existence de l'email.
-protocol EmailVerifier {
-    func emailExists(_ email: String) async throws -> Bool
-}
-
-/// Implémentation par défaut qui utilise le backend NestJS existant.
-struct DefaultEmailVerifier: EmailVerifier {
-    func emailExists(_ email: String) async throws -> Bool {
-        guard let url = URL(string: APIConfig.emailExistsEndpoint(for: email)) else {
-            throw OTPService.OTPError.networkError
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
+            completion(.failure(OTPError.jsonEncodingError))
+            return
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
         
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OTPService.OTPError.networkError
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            if httpResponse.statusCode == 404 {
-                return false
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("🔴 REAL MODE - Network error: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    completion(.failure(OTPError.networkError(error.localizedDescription)))
+                }
+                return
             }
-            throw OTPService.OTPError.networkError
-        }
-        
-        // Le backend peut renvoyer différents formats, on tente plusieurs décodages.
-        if let structured = try? JSONDecoder().decode(EmailExistsResponse.self, from: data) {
-            if let exists = structured.exists ?? structured.data {
-                return exists
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("🔴 REAL MODE - Invalid response")
+                DispatchQueue.main.async {
+                    completion(.failure(OTPError.invalidResponse))
+                }
+                return
+            }
+            
+            print("🔵 HTTP Status: \(httpResponse.statusCode)")
+            
+            let statusCode = httpResponse.statusCode
+            let responseString = String(data: data ?? Data(), encoding: .utf8) ?? ""
+            print("🔵 REAL MODE - Response: \(responseString)")
+            
+            // Vérifier le succès
+            let success = (200...299).contains(statusCode) ||
+                         responseString.contains("\"status\":\"success\"") ||
+                         responseString.contains("\"status\":200") ||
+                         responseString.contains("200") ||
+                         responseString.contains("OK")
+            
+            if success {
+                print("🟢 REAL MODE - Email sent successfully")
+                DispatchQueue.main.async {
+                    completion(.success(()))
+                }
+            } else {
+                print("🔴 REAL MODE - Email failed. Response: \(responseString)")
+                DispatchQueue.main.async {
+                    completion(.failure(OTPError.emailSendFailed(responseString)))
+                }
             }
         }
         
-        // Plan B: l'API peut renvoyer un simple booléen ("true"/"false")
-        if let stringValue = String(data: data, encoding: .utf8) {
-            return (stringValue as NSString).boolValue
-        }
-        
-        return false
+        task.resume()
     }
     
-    /// Modèle de réponse minimal pour `/admin/email-exists/{email}`
-    private struct EmailExistsResponse: Codable {
-        let exists: Bool?
-        let data: Bool?
+    // MARK: - Verify OTP
+    
+    /// Vérifie si le code OTP entré correspond à celui sauvegardé
+    func verifyOTP(_ enteredOTP: String) -> Bool {
+        guard let savedOTP = getSavedOTP() else {
+            print("⚠️ Aucun OTP sauvegardé")
+            return false
+        }
+        
+        let isValid = enteredOTP == savedOTP
+        print("🔍 Vérification OTP: \(enteredOTP) == \(savedOTP) ? \(isValid)")
+        return isValid
+    }
+    
+    /// Valide un OTP pour un email donné (méthode async pour OTPVerificationViewModel)
+    func validateOTP(_ code: String, for email: String) async throws {
+        guard let savedEmail = getSavedEmail(), savedEmail == email else {
+            throw OTPError.invalidResponse
+        }
+        
+        guard verifyOTP(code) else {
+            throw OTPError.invalidResponse
+        }
+    }
+    
+    /// Demande un nouveau OTP pour un email (méthode async pour OTPVerificationViewModel)
+    func requestOTP(for email: String) async throws {
+        return try await withCheckedThrowingContinuation { continuation in
+            sendOTPEmail(email: email) { result in
+                switch result {
+                case .success:
+                    continuation.resume()
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 }
 
+// MARK: - OTP Errors
+
+/// Erreurs possibles lors de l'envoi ou de la vérification d'OTP
+public enum OTPError: LocalizedError {
+    case invalidURL
+    case jsonEncodingError
+    case networkError(String)
+    case invalidResponse
+    case emailSendFailed(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "URL invalide"
+        case .jsonEncodingError:
+            return "Erreur d'encodage JSON"
+        case .networkError(let message):
+            return "Erreur réseau: \(message)"
+        case .invalidResponse:
+            return "Réponse invalide du serveur"
+        case .emailSendFailed(let message):
+            return "Échec de l'envoi de l'email: \(message)"
+        }
+    }
+}
