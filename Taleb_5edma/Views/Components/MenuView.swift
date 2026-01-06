@@ -60,8 +60,8 @@ struct MenuView: View {
     /// Indique si la vue des données biométriques doit être affichée
     @State private var showingBioData = false
     
-    /// Indique si la vue de la carte doit être affichée
-    @State private var showingMaps = false
+    /// Indique si la vue d'upload d'emploi du temps PDF doit être affichée
+    @State private var showingScheduleUpload = false
     
     /// Flag pour gérer la navigation vers l'onglet Offres après fermeture de FavoritesView
     @State private var shouldNavigateToOffers = false
@@ -94,7 +94,7 @@ struct MenuView: View {
                     Button("Fermer") {
                         dismiss()
                     }
-                    .foregroundColor(Color(hex: 0x9333ea))
+                    .foregroundColor(AppColors.primaryRed)
                 }
             }
             .sheet(isPresented: $showingFavorites, onDismiss: {
@@ -145,8 +145,9 @@ struct MenuView: View {
                 CreateOfferView()
                     .environmentObject(authService)
             }
-            .sheet(isPresented: $showingMaps) {
-                MapsViewWrapper()
+            .sheet(isPresented: $showingScheduleUpload) {
+                ScheduleUploadView()
+                    .environmentObject(authService)
             }
         }
     }
@@ -158,7 +159,7 @@ struct MenuView: View {
             // Photo de profil
             ZStack {
                 Circle()
-                    .fill(Color(hex: 0x9333ea))
+                    .fill(AppColors.primaryRed)
                     .frame(width: 80, height: 80)
                 
                 if let imageUrl = authService.currentUser?.image, !imageUrl.isEmpty {
@@ -198,7 +199,7 @@ struct MenuView: View {
             MenuSection(title: "Navigation") {
                 MenuItem(
                     icon: "house.fill",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Accueil",
                     action: {
                         selectedTab = 0
@@ -218,7 +219,7 @@ struct MenuView: View {
                 
                 MenuItem(
                     icon: "clock.fill",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Disponibilités",
                     action: {
                         selectedTab = 2
@@ -235,13 +236,16 @@ struct MenuView: View {
                         dismiss()
                     }
                 )
-                
+            }
+            
+            // Section Emploi du temps
+            MenuSection(title: "Emploi du temps") {
                 MenuItem(
-                    icon: "map.fill",
-                    iconColor: Color(hex: 0x9333ea),
-                    title: "Maps",
+                    icon: "doc.text.fill",
+                    iconColor: AppColors.accentBlue,
+                    title: "Importer emploi du temps PDF",
                     action: {
-                        showingMaps = true
+                        showingScheduleUpload = true
                     }
                 )
             }
@@ -250,7 +254,7 @@ struct MenuView: View {
             MenuSection(title: "Favoris") {
                 MenuItem(
                     icon: "heart.fill",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Mes offres favorites",
                     action: {
                         showingFavorites = true
@@ -262,7 +266,7 @@ struct MenuView: View {
             MenuSection(title: "Offres") {
                 MenuItem(
                     icon: "briefcase.fill",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Mes offres",
                     action: {
                         showingMyOffres = true
@@ -271,7 +275,7 @@ struct MenuView: View {
                 
                 MenuItem(
                     icon: "plus.circle.fill",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Créer une offre",
                     action: {
                         showingCreateOffer = true
@@ -283,7 +287,7 @@ struct MenuView: View {
             MenuSection(title: "Compte") {
                 MenuItem(
                     icon: "person.circle",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Mon profil",
                     action: {
                         showingProfile = true
@@ -292,7 +296,7 @@ struct MenuView: View {
                 
                 MenuItem(
                     icon: "exclamationmark.bubble",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Mes réclamations",
                     action: {
                         showingReclamations = true
@@ -301,7 +305,7 @@ struct MenuView: View {
                 
                 MenuItem(
                     icon: "slider.horizontal.3",
-                    iconColor: Color(hex: 0x9333ea),
+                    iconColor: AppColors.primaryRed,
                     title: "Modifier mes préférences",
                     action: {
                         // Réinitialiser l'onboarding pour permettre de le refaire

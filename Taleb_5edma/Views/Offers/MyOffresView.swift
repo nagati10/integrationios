@@ -91,7 +91,7 @@ struct MyOffresView: View {
         VStack(spacing: 0) {
             ZStack {
                 LinearGradient(
-                    gradient: Gradient(colors: [Color(hex: 0x9333ea), Color(hex: 0xB042FF)]),
+                    gradient: Gradient(colors: [AppColors.primaryRed, AppColors.accentPink]),
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -170,84 +170,33 @@ struct MyOffreCard: View {
     let onDelete: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Image Section
-            if let images = offre.images, let firstImage = images.first, !firstImage.isEmpty {
-                // Essayer plusieurs URLs en cascade
-                let possibleURLs = buildPossibleImageURLs(from: firstImage)
-                FallbackAsyncImage(
-                    urls: possibleURLs,
-                    placeholder: AnyView(
-                        Rectangle()
-                            .fill(AppColors.backgroundGray)
-                            .frame(height: 160)
-                            .overlay(
-                                ProgressView()
-                                    .tint(Color(hex: 0x9333ea))
-                            )
-                    ),
-                    failureView: AnyView(
-                        Rectangle()
-                            .fill(AppColors.backgroundGray)
-                            .frame(height: 160)
-                            .overlay(
-                                VStack(spacing: 8) {
-                                    Image(systemName: "photo")
-                                        .font(.largeTitle)
-                                        .foregroundColor(AppColors.mediumGray.opacity(0.3))
-                                    Text("Image non disponible")
-                                        .font(.caption)
-                                        .foregroundColor(AppColors.mediumGray)
-                                }
-                            )
-                    )
-                )
-                .aspectRatio(contentMode: .fill)
-                .frame(height: 160)
-                .clipped()
-            } else {
-                // Default placeholder if no image
-                Rectangle()
-                    .fill(LinearGradient(
-                        gradient: Gradient(colors: [AppColors.backgroundGray, AppColors.lightGray]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .frame(height: 120)
-                    .overlay(
-                        Image(systemName: "briefcase.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(AppColors.mediumGray.opacity(0.2))
-                    )
-            }
-            
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(offre.title)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(AppColors.black)
-                            .lineLimit(2)
-                        
-                        Text(offre.company)
-                            .font(.system(size: 14))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(offre.title)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(AppColors.black)
+                        .lineLimit(2)
+                    
+                    Text(offre.company)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppColors.mediumGray)
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(AppColors.primaryRed)
+                        Text(offre.location.address)
+                            .font(.system(size: 12))
                             .foregroundColor(AppColors.mediumGray)
-                        
-                        HStack(spacing: 8) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(Color(hex: 0x9333ea))
-                            Text(offre.location.address)
-                                .font(.system(size: 12))
-                                .foregroundColor(AppColors.mediumGray)
-                        }
-                        
-                        if let city = offre.location.city {
-                            Text(city)
-                                .font(.system(size: 12))
-                                .foregroundColor(AppColors.mediumGray)
-                        }
                     }
+                    
+                    if let city = offre.location.city {
+                        Text(city)
+                            .font(.system(size: 12))
+                            .foregroundColor(AppColors.mediumGray)
+                    }
+                }
                 
                 Spacer()
                 
@@ -255,7 +204,7 @@ struct MyOffreCard: View {
                     VStack(alignment: .trailing, spacing: 4) {
                         Text(salary)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(hex: 0x9333ea))
+                            .foregroundColor(AppColors.primaryRed)
                     }
                 }
             }
@@ -269,8 +218,8 @@ struct MyOffreCard: View {
                                 .font(.system(size: 11))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color(hex: 0x9333ea).opacity(0.1))
-                                .foregroundColor(Color(hex: 0x9333ea))
+                                .background(AppColors.primaryRed.opacity(0.1))
+                                .foregroundColor(AppColors.primaryRed)
                                 .cornerRadius(8)
                         }
                     }
@@ -326,13 +275,13 @@ struct MyOffreCard: View {
                         Text("Modifier")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundColor(Color(hex: 0x9333ea))
+                    .foregroundColor(AppColors.primaryRed)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(AppColors.white)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color(hex: 0x9333ea), lineWidth: 1.5)
+                            .stroke(AppColors.primaryRed, lineWidth: 1.5)
                     )
                     .cornerRadius(8)
                 }
@@ -347,86 +296,15 @@ struct MyOffreCard: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(Color(hex: 0x9333ea))
+                    .background(AppColors.primaryRed)
                     .cornerRadius(8)
                 }
             }
-            }
-            .padding()
         }
+        .padding()
         .background(AppColors.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-        .onAppear {
-            // Log pour débogage
-            if let images = offre.images, let firstImage = images.first, !firstImage.isEmpty {
-                let imageURL = buildImageURL(from: firstImage)
-                let possibleURLs = buildPossibleImageURLs(from: firstImage)
-                print("🖼️ MyOffreCard - Offre '\(offre.title)'")
-                print("   Chemin image original: '\(firstImage)'")
-                print("   URL utilisée: '\(imageURL)'")
-                print("   Autres URLs possibles: \(possibleURLs)")
-            } else {
-                print("⚠️ MyOffreCard - Offre '\(offre.title)' n'a pas d'images")
-            }
-        }
-    }
-    
-    /// Construit l'URL de l'image (format principal)
-    private func buildImageURL(from urlString: String) -> String {
-        let cleanPath = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        if cleanPath.starts(with: "http://") || cleanPath.starts(with: "https://") {
-            return cleanPath
-        }
-        
-        if cleanPath.starts(with: "/") {
-            return APIConfig.baseURL + cleanPath
-        }
-        
-        // Format standard: baseURL + / + chemin
-        return APIConfig.baseURL + "/" + cleanPath
-    }
-    
-    /// Construit plusieurs URLs possibles pour l'image (pour débogage)
-    /// Le backend NestJS peut servir les fichiers via différents chemins selon la configuration
-    private func buildPossibleImageURLs(from urlString: String) -> [String] {
-        // Nettoyer le chemin
-        let cleanPath = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Si c'est déjà une URL complète, la retourner telle quelle
-        if cleanPath.starts(with: "http://") || cleanPath.starts(with: "https://") {
-            return [cleanPath]
-        }
-        
-        var urls: [String] = []
-        let baseURL = APIConfig.baseURL
-        
-        // Format 1: Directement depuis /uploads/ (configuration standard NestJS)
-        if cleanPath.starts(with: "uploads/") {
-            urls.append(baseURL + "/" + cleanPath)
-        } else if cleanPath.starts(with: "/") {
-            urls.append(baseURL + cleanPath)
-        } else {
-            // Format 2: Via /uploads/ (si le chemin ne commence pas par uploads/)
-            urls.append(baseURL + "/uploads/" + cleanPath)
-            // Format 3: Directement depuis la racine
-            urls.append(baseURL + "/" + cleanPath)
-        }
-        
-        // Format 4: Via un endpoint /files/ (configuration alternative)
-        if cleanPath.contains("uploads/") {
-            let relativePath = cleanPath.replacingOccurrences(of: "uploads/", with: "")
-            urls.append(baseURL + "/files/" + relativePath)
-        }
-        
-        // Format 5: Via un endpoint /static/ (autre configuration alternative)
-        if cleanPath.contains("uploads/") {
-            urls.append(baseURL + "/static/" + cleanPath)
-        }
-        
-        // Retourner les URLs uniques
-        return Array(Set(urls))
     }
 }
 

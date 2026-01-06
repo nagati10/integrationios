@@ -2,6 +2,8 @@
 //  ProfileView.swift
 //  Taleb_5edma
 //
+//  Created by Apple on 10/11/2025.
+//
 
 import SwiftUI
 import UIKit
@@ -24,79 +26,76 @@ struct ProfileView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background
-                Color(.systemGray6)
-                    .ignoresSafeArea()
-                
-                if viewModel.isLoading {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(.red)
-                } else {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            // Header avec photo de profil
-                            profileHeader
-                            
-                            // Section Mon Compte
-                            myAccountSection
-                            
-                            // Section Réclamations
-                            reclamationsSection
-                            
-                            // Section Déconnexion
-                            logoutSection
-                            
-                            Spacer()
-                        }
+        ZStack {
+            // Background
+            AppColors.backgroundGray
+                .ignoresSafeArea()
+            
+            if viewModel.isLoading {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(AppColors.primaryRed)
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Header avec photo de profil
+                        profileHeader
+                        
+                        // Section Mon Compte
+                        myAccountSection
+                        
+                        // Section Réclamations
+                        reclamationsSection
+                        
+                        // Section Déconnexion
+                        logoutSection
+                        
+                        Spacer()
                     }
                 }
             }
-            .navigationBarHidden(true)
-            .alert("Erreur", isPresented: $viewModel.showError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(viewModel.errorMessage ?? "Une erreur est survenue")
+        }
+        .navigationBarHidden(true)
+        .alert("Erreur", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.errorMessage ?? "Une erreur est survenue")
+        }
+        .alert("Succès", isPresented: $viewModel.showSuccess) {
+            Button("OK", role: .cancel) {
+                // Réinitialiser l'image sélectionnée après succès
+                selectedImage = nil
             }
-            .alert("Succès", isPresented: $viewModel.showSuccess) {
-                Button("OK", role: .cancel) {
-                    // Réinitialiser l'image sélectionnée après succès
-                    selectedImage = nil
-                }
-            } message: {
-                Text(viewModel.successMessage ?? "Opération réussie")
-            }
-            .actionSheet(isPresented: $showActionSheet) {
-                ActionSheet(
-                    title: Text("Choisir une photo"),
-                    buttons: [
-                        .default(Text("Caméra")) {
-                            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                                sourceType = .camera
-                                showImagePicker = true
-                            }
-                        },
-                        .default(Text("Galerie")) {
-                            sourceType = .photoLibrary
+        } message: {
+            Text(viewModel.successMessage ?? "Opération réussie")
+        }
+        .actionSheet(isPresented: $showActionSheet) {
+            ActionSheet(
+                title: Text("Choisir une photo"),
+                buttons: [
+                    .default(Text("Caméra")) {
+                        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                            sourceType = .camera
                             showImagePicker = true
-                        },
-                        .cancel(Text("Annuler"))
-                    ]
-                )
-            }
-            .sheet(isPresented: $showImagePicker) {
-                ImagePickerView(selectedImage: $selectedImage, sourceType: sourceType)
-            }
-            .onChange(of: selectedImage) { oldValue, newValue in
-                // Upload l'image quand elle est sélectionnée
-                if let image = newValue {
-                    viewModel.uploadProfileImage(image)
-                }
+                        }
+                    },
+                    .default(Text("Galerie")) {
+                        sourceType = .photoLibrary
+                        showImagePicker = true
+                    },
+                    .cancel(Text("Annuler"))
+                ]
+            )
+        }
+        .sheet(isPresented: $showImagePicker) {
+            ImagePicker(selectedImage: $selectedImage, sourceType: sourceType)
+        }
+        .onChange(of: selectedImage) { oldValue, newValue in
+            // Upload l'image quand elle est sélectionnée
+            if let image = newValue {
+                viewModel.uploadProfileImage(image)
             }
         }
-        .navigationViewStyle(.stack)
     }
     
     private var profileHeader: some View {
@@ -104,7 +103,7 @@ struct ProfileView: View {
             // Photo de profil avec possibilité de modification
             ZStack {
                 Circle()
-                    .fill(.red)
+                    .fill(AppColors.primaryRed)
                     .frame(width: 100, height: 100)
                 
                 // Afficher l'image sélectionnée ou celle du serveur
@@ -147,11 +146,11 @@ struct ProfileView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(.white)
                                 .frame(width: 28, height: 28)
-                                .background(.red)
+                                .background(AppColors.primaryRed)
                                 .clipShape(Circle())
                                 .overlay(
                                     Circle()
-                                        .stroke(.white, lineWidth: 2)
+                                        .stroke(AppColors.white, lineWidth: 2)
                                 )
                         }
                     }
@@ -169,135 +168,28 @@ struct ProfileView: View {
                 Text(viewModel.currentUser?.nom ?? "Utilisateur")
                     .font(.title2)
                     .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .foregroundColor(AppColors.black)
                 
                 Text(viewModel.currentUser?.email ?? "email@exemple.com")
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppColors.mediumGray)
                 
                 if let contact = viewModel.currentUser?.contact, !contact.isEmpty {
                     Text(contact)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppColors.mediumGray)
                 }
-            }
-            
-            // User Stats & Status
-            HStack(spacing: 16) {
-                // TrustXP
-                if let trustXP = viewModel.currentUser?.TrustXP, trustXP > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .foregroundColor(.yellow)
-                            .font(.caption)
-                        Text("\(trustXP) XP")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.yellow.opacity(0.1))
-                    .cornerRadius(12)
-                }
-                
-                // Online Status
-                if let isOnline = viewModel.currentUser?.isOnline {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(isOnline ? Color.green : Color.gray)
-                            .frame(width: 8, height: 8)
-                        Text(isOnline ? "En ligne" : "Hors ligne")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
-                }
-                
-                // Organization Badge
-                if let isOrg = viewModel.currentUser?.is_Organization, isOrg {
-                    HStack(spacing: 4) {
-                        Image(systemName: "building.2")
-                            .foregroundColor(.blue)
-                            .font(.caption)
-                        Text("Organisation")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.blue)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(12)
-                }
-            }
-            
-            // Activity Stats Row
-            HStack(spacing: 24) {
-                // Liked Offers
-                if let likedCount = viewModel.currentUser?.likedOffres?.count, likedCount > 0 {
-                    VStack(spacing: 4) {
-                        Text("\(likedCount)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(.red)
-                        Text("J'aime")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                // Chats
-                if let chatsCount = viewModel.currentUser?.chats?.count, chatsCount > 0 {
-                    VStack(spacing: 4) {
-                        Text("\(chatsCount)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(.red)
-                        Text("Chats")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                // Exam Mode Badge
-                if let examMode = viewModel.currentUser?.modeExamens, examMode {
-                    VStack(spacing: 4) {
-                        Image(systemName: "graduationcap.fill")
-                            .font(.title3)
-                            .foregroundColor(.purple)
-                        Text("Mode Examen")
-                            .font(.caption)
-                            .foregroundColor(.purple)
-                    }
-                }
-            }
-            .padding(.top, 8)
-            
-            // Last Seen
-            if let lastSeen = viewModel.currentUser?.lastSeen {
-                Text("Dernière activité: \(formatDate(lastSeen))")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
             }
         }
         .padding(.vertical, 32)
         .frame(maxWidth: .infinity)
-        .background(.white)
+        .background(AppColors.white)
     }
     
     private var myAccountSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Mon Compte")
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundColor(.primary)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                .sectionHeaderStyle()
             
             VStack(spacing: 0) {
                 NavigationLink(destination: BioDataView(viewModel: viewModel)) {
@@ -307,25 +199,10 @@ struct ProfileView: View {
                         subtitle: "Mettre à jour vos informations personnelles"
                     )
                 }
-                .buttonStyle(PlainButtonStyle())
-                
-                // CV Results - Only show if user has CV data
-                if hasAnyCVData() {
-                    Divider()
-                        .padding(.leading, 56)
-                    
-                    NavigationLink(destination: CVResultsView()) {
-                        ProfileMenuItem(
-                            icon: "doc.text.magnifyingglass",
-                            title: "Mon CV Analysé",
-                            subtitle: "Consulter les informations de votre CV"
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
                 
                 Divider()
                     .padding(.leading, 56)
+                    .background(AppColors.separatorGray)
                 
                 NavigationLink(
                     destination: PasswordResetView(
@@ -342,11 +219,8 @@ struct ProfileView: View {
                         subtitle: "Choisir un nouveau mot de passe sécurisé"
                     )
                 }
-                .buttonStyle(PlainButtonStyle())
             }
-            .background(.white)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+            .cardStyle()
         }
         .padding(.horizontal)
         .padding(.top, 16)
@@ -355,11 +229,7 @@ struct ProfileView: View {
     private var reclamationsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Réclamations")
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundColor(.primary)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                .sectionHeaderStyle()
             
             VStack(spacing: 0) {
                 // Navigation vers les réclamations
@@ -372,10 +242,10 @@ struct ProfileView: View {
                         subtitle: "Consulter et gérer vos réclamations"
                     )
                 }
-                .buttonStyle(PlainButtonStyle())
                 
                 Divider()
                     .padding(.leading, 56)
+                    .background(AppColors.separatorGray)
                 
                 // Option pour créer une réclamation rapide
                 Button(action: {
@@ -387,19 +257,18 @@ struct ProfileView: View {
                         subtitle: "Signaler un problème ou donner votre avis"
                     )
                 }
-                .buttonStyle(PlainButtonStyle())
             }
-            .background(.white)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+            .cardStyle()
         }
         .padding(.horizontal)
         .padding(.top, 16)
         .sheet(isPresented: $showingReclamations) {
-            Text("Mes Réclamations - À implémenter")
+            ReclamationsView()
+                .environmentObject(authService)
         }
         .sheet(isPresented: $showingNewReclamation) {
-            Text("Nouvelle Réclamation - À implémenter")
+            NouvelleReclamationView(reclamationService: ReclamationService())
+                .environmentObject(authService)
         }
     }
     
@@ -409,19 +278,16 @@ struct ProfileView: View {
         }) {
             HStack {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .foregroundColor(.red)
+                    .foregroundColor(AppColors.errorRed)
                 
                 Text("Se déconnecter")
                     .font(.body)
                     .fontWeight(.medium)
-                    .foregroundColor(.red)
+                    .foregroundColor(AppColors.errorRed)
                 
                 Spacer()
             }
-            .padding()
-            .background(.white)
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+            .cardStyle()
         }
         .padding(.horizontal)
         .padding(.top, 16)
@@ -435,23 +301,6 @@ struct ProfileView: View {
             return String(name.prefix(1)).uppercased()
         }
     }
-    
-    /// Check if the user has any CV data saved
-    private func hasAnyCVData() -> Bool {
-        guard let user = viewModel.currentUser else { return false }
-        let hasExperience = user.cvExperience?.isEmpty == false
-        let hasEducation = user.cvEducation?.isEmpty == false
-        let hasSkills = user.cvSkills?.isEmpty == false
-        return hasExperience || hasEducation || hasSkills
-    }
-    
-    /// Format date to relative time string
-    private func formatDate(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        formatter.locale = Locale(identifier: "fr_FR")
-        return formatter.localizedString(for: date, relativeTo: Date())
-    }
 }
 
 // MARK: - Profile Menu Item Component
@@ -463,67 +312,28 @@ struct ProfileMenuItem: View {
     var body: some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.red)
+                .foregroundColor(AppColors.primaryRed)
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.body)
-                    .foregroundColor(.primary)
+                    .foregroundColor(AppColors.black)
                 
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppColors.mediumGray)
             }
             
             Spacer()
             
             Image(systemName: "chevron.right")
-                .foregroundColor(.secondary)
+                .foregroundColor(AppColors.mediumGray)
         }
         .padding()
-        .contentShape(Rectangle()) // Important pour que tout le rectangle soit cliquable
     }
 }
-
-// MARK: - Image Picker View (Renommé pour éviter les conflits)
-struct ImagePickerView: UIViewControllerRepresentable {
-    @Binding var selectedImage: UIImage?
-    var sourceType: UIImagePickerController.SourceType
     
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = sourceType
-        picker.delegate = context.coordinator
-        return picker
-    }
-    
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-    
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let parent: ImagePickerView
-        
-        init(_ parent: ImagePickerView) {
-            self.parent = parent
-        }
-        
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            if let image = info[.originalImage] as? UIImage {
-                parent.selectedImage = image
-            }
-            picker.dismiss(animated: true)
-        }
-        
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            picker.dismiss(animated: true)
-        }
-    }
-}
-
 #Preview {
     ProfileView(authService: AuthService())
         .environmentObject(AuthService())

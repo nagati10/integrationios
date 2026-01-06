@@ -99,7 +99,7 @@ final class OTPVerificationViewModel: ObservableObject {
         do {
             try await otpService.validateOTP(trimmedCode, for: email)
             onSuccess?()
-        } catch let otpError as OTPError {
+        } catch let otpError as OTPService.OTPError {
             errorMessage = otpError.localizedDescription
             showError = true
         } catch {
@@ -123,7 +123,7 @@ final class OTPVerificationViewModel: ObservableObject {
         do {
             try await otpService.requestOTP(for: email)
             resetCountdown()
-        } catch let otpError as OTPError {
+        } catch let otpError as OTPService.OTPError {
             errorMessage = otpError.localizedDescription
             showError = true
         } catch {

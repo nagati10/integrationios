@@ -45,7 +45,7 @@ final class ForgotPasswordEmailViewModel: ObservableObject {
             try await otpService.requestOTP(for: trimmedEmail)
             didSendOTP = true
             onSuccess?(trimmedEmail)
-        } catch let otpError as OTPError {
+        } catch let otpError as OTPService.OTPError {
             errorMessage = otpError.localizedDescription
             showError = true
         } catch {

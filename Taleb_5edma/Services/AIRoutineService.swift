@@ -141,7 +141,8 @@ class AIRoutineService {
             request.httpBody = jsonData
             
             // Logger le JSON envoyé (pour debug) - formaté pour lisibilité
-            if let jsonObject = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+            if let jsonString = String(data: jsonData, encoding: .utf8),
+               let jsonObject = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
                let prettyJson = try? JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted),
                let prettyString = String(data: prettyJson, encoding: .utf8) {
                 print("🟢 AIRoutineService - Données envoyées (formatées):")
@@ -370,7 +371,7 @@ class AIRoutineService {
             return 0
         }
         
-        let debutMinutes = debutComponents.heure * 60 + debutComponents.minute
+        var debutMinutes = debutComponents.heure * 60 + debutComponents.minute
         var finMinutes = finComponents.heure * 60 + finComponents.minute
         
         // Si l'heure de fin est avant l'heure de début, c'est le lendemain

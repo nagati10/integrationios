@@ -130,7 +130,8 @@ struct OffersView: View {
             QRGeneratorView()
         }
         .sheet(isPresented: $showingMap) {
-            JobsMapView(offres: viewModel.offres)
+            // TODO: Créer JobsMapView pour les offres
+            Text("Carte des offres")
         }
         .sheet(isPresented: $showingAICV) {
             AICVAnalysisView()
@@ -285,7 +286,92 @@ struct OffersView: View {
     }
 }
 
+// MARK: - OffreCardView
 
+/// Composant pour afficher une carte d'offre dans la liste
+struct OffreCardView: View {
+    let offre: Offre
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(offre.title)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(AppColors.black)
+                        .lineLimit(2)
+                    
+                    Text(offre.company)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppColors.mediumGray)
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(AppColors.primaryRed)
+                        Text(offre.location.address)
+                            .font(.system(size: 12))
+                            .foregroundColor(AppColors.mediumGray)
+                    }
+                }
+                
+                Spacer()
+                
+                if let salary = offre.salary {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(salary)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(AppColors.primaryRed)
+                    }
+                }
+            }
+            
+            if let tags = offre.tags, !tags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(tags.prefix(3), id: \.self) { tag in
+                            Text(tag)
+                                .font(.system(size: 11))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(AppColors.primaryRed.opacity(0.1))
+                                .foregroundColor(AppColors.primaryRed)
+                                .cornerRadius(8)
+                        }
+                    }
+                }
+            }
+            
+            HStack {
+                if let likeCount = offre.likeCount {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 12))
+                        Text("\(likeCount)")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundColor(AppColors.mediumGray)
+                }
+                
+                Spacer()
+                
+                if let viewCount = offre.viewCount {
+                    HStack(spacing: 4) {
+                        Image(systemName: "eye.fill")
+                            .font(.system(size: 12))
+                        Text("\(viewCount)")
+                            .font(.system(size: 12))
+                    }
+                    .foregroundColor(AppColors.mediumGray)
+                }
+            }
+        }
+        .padding()
+        .background(AppColors.white)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+    }
+}
 
 #Preview {
     NavigationView {

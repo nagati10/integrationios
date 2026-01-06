@@ -95,12 +95,12 @@ class FavoritesService: ObservableObject {
     
     /// Filtre une liste d'offres pour ne garder que celles qui sont favorites
     /// Utile pour afficher uniquement les offres favorites dans `FavoritesView`
-    /// - Parameter offres: La liste complète des offres à filtrer
+    /// - Parameter jobs: La liste complète des offres à filtrer
     /// - Returns: Une liste contenant uniquement les offres favorites
     /// - Complexity: O(n) où n est le nombre d'offres dans la liste
-    func filterFavoriteOffres(from offres: [Offre]) -> [Offre] {
-        return offres.filter { offre in
-            favoriteJobIds.contains(offre.id)
+    func filterFavoriteJobs(from jobs: [Job]) -> [Job] {
+        return jobs.filter { job in
+            favoriteJobIds.contains(job.id)
         }
     }
     

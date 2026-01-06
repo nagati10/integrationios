@@ -15,9 +15,6 @@ struct CreateOfferView: View {
     // ViewModel pour gérer la logique métier
     @StateObject private var viewModel = OffreViewModel()
     
-    // Paramètre optionnel pour pré-remplir le jobType (pour les entreprises)
-    var initialJobType: String? = nil
-    
     // Champs du formulaire
     @State private var title = ""
     @State private var description = ""
@@ -41,9 +38,6 @@ struct CreateOfferView: View {
     @State private var showImagePicker = false
     @State private var showActionSheet = false
     @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary
-    
-    // Location picker
-    @State private var showingLocationPicker = false
     
     // État de chargement et erreurs
     @State private var showSuccess = false
@@ -133,26 +127,6 @@ struct CreateOfferView: View {
                 }
             } message: {
                 Text("L'offre a été créée avec succès!")
-            }
-            .sheet(isPresented: $showingLocationPicker) {
-                LocationPickerView { locationDetails in
-                    // Auto-fill les champs de localisation
-                    address = locationDetails.address
-                    city = locationDetails.city
-                    country = locationDetails.country
-                    latitude = locationDetails.coordinates.lat
-                    longitude = locationDetails.coordinates.lng
-                }
-            }
-            .onAppear {
-                // Initialiser le jobType si fourni (pour les entreprises - offre professionnelle)
-                if let initialType = initialJobType, jobType.isEmpty {
-                    jobType = initialType
-                }
-                // Pré-remplir la company avec le nom de l'utilisateur si c'est une entreprise
-                if authService.currentUser?.is_Organization == true, company.isEmpty {
-                    company = authService.currentUser?.nom ?? ""
-                }
             }
         }
     }
@@ -317,28 +291,9 @@ struct CreateOfferView: View {
     
     private var locationSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Localisation *")
-                    .font(.headline)
-                    .foregroundColor(AppColors.black)
-                
-                Spacer()
-                
-                Button(action: {
-                    showingLocationPicker = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "location.fill")
-                        Text("Carte")
-                            .font(.subheadline)
-                    }
-                    .foregroundColor(AppColors.primaryRed)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(AppColors.primaryRed.opacity(0.1))
-                    .cornerRadius(8)
-                }
-            }
+            Text("Localisation *")
+                .font(.headline)
+                .foregroundColor(AppColors.black)
             
             // Adresse
             VStack(alignment: .leading, spacing: 8) {
@@ -503,7 +458,7 @@ struct CreateOfferView: View {
     // MARK: - Validation
     
     private var isFormValid: Bool {
-        !title.isEmpty && !description.isEmpty && !address.isEmpty && !company.isEmpty && !jobType.isEmpty
+        !title.isEmpty && !description.isEmpty && !address.isEmpty && !company.isEmpty
     }
     
     // MARK: - Submit Action

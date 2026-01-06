@@ -230,10 +230,6 @@ class AuthService: ObservableObject {
             self.authToken = authResponse.token
             self.currentUser = authResponse.user
             
-            // Save user ID to UserDefaults for chat functionality
-            UserDefaults.standard.set(authResponse.user.id, forKey: "userId")
-            print("💾 User ID saved to UserDefaults: \(authResponse.user.id)")
-            
             print("✅ Login - Succès! Token reçu: \(authResponse.token.prefix(20))...")
             
             return authResponse
@@ -276,7 +272,7 @@ class AuthService: ObservableObject {
         
         guard (200...299).contains(httpResponse.statusCode) else {
             // Log de l'erreur pour le débogage
-            if let responseData = String(data: data, encoding: .utf8) {
+            if let responseData = try? String(data: data, encoding: .utf8) {
                 print("❌ Erreur SignUp - Status: \(httpResponse.statusCode)")
                 print("URL: \(url.absoluteString)")
                 print("Réponse: \(responseData)")
@@ -307,10 +303,6 @@ class AuthService: ObservableObject {
         let authResponse = try makeJSONDecoder().decode(AuthResponse.self, from: data)
         self.authToken = authResponse.token
         self.currentUser = authResponse.user
-        
-        // Save user ID to UserDefaults for chat functionality
-        UserDefaults.standard.set(authResponse.user.id, forKey: "userId")
-        print("💾 User ID saved to UserDefaults: \(authResponse.user.id)")
         
         return authResponse
     }
@@ -380,10 +372,6 @@ class AuthService: ObservableObject {
         self.authToken = authResponse.token
         self.currentUser = authResponse.user
         
-        // Save user ID to UserDefaults for chat functionality
-        UserDefaults.standard.set(authResponse.user.id, forKey: "userId")
-        print("💾 User ID saved to UserDefaults: \(authResponse.user.id)")
-        
         print("✅ Google Sign-In - Succès! Token reçu: \(authResponse.token.prefix(20))...")
         
         return authResponse
@@ -407,13 +395,7 @@ class AuthService: ObservableObject {
         
         guard (200...299).contains(httpResponse.statusCode) else {
             if httpResponse.statusCode == 401 {
-                await MainActor.run { self.logout() }
                 throw AuthError.notAuthenticated
-            }
-            if httpResponse.statusCode == 404 {
-                print("❌ User not found (404) - Logging out")
-                await MainActor.run { self.logout() }
-                throw AuthError.userNotFound
             }
             throw AuthError.serverError(httpResponse.statusCode)
         }
@@ -467,13 +449,7 @@ class AuthService: ObservableObject {
             // Vérifier le status code AVANT de décoder
             guard (200...299).contains(httpResponse.statusCode) else {
                 if httpResponse.statusCode == 401 {
-                    await MainActor.run { self.logout() }
                     throw AuthError.notAuthenticated
-                }
-                if httpResponse.statusCode == 404 {
-                    print("❌ User not found (404) - Logging out")
-                    await MainActor.run { self.logout() }
-                    throw AuthError.userNotFound
                 }
                 throw AuthError.serverError(httpResponse.statusCode)
             }
@@ -549,12 +525,6 @@ class AuthService: ObservableObject {
         if let responseString = String(data: data, encoding: .utf8) {
             print("🔐 Reset Password - Response: \(responseString)")
         }
-    }
-    
-    /// Réinitialise le mot de passe avec email et nouveau mot de passe (wrapper simplifié)
-    func resetPassword(email: String, newPassword: String) async throws {
-        let request = ResetPasswordRequest(email: email, newPassword: newPassword)
-        try await resetPassword(request, requiresAuthentication: false)
     }
     
     /// Upload l'image de profil de l'utilisateur
@@ -731,9 +701,6 @@ class AuthService: ObservableObject {
                 if case AuthError.notAuthenticated = error {
                     print("🔒 Token invalide - Nettoyage de la session")
                     logout()
-                } else if case AuthError.userNotFound = error {
-                    print("🔒 Utilisateur introuvable - Nettoyage de la session")
-                    logout()
                 }
             }
         } else if authToken != nil && currentUser != nil {
@@ -781,9 +748,6 @@ class AuthService: ObservableObject {
         self.authToken = nil
         // Réinitialiser l'utilisateur (déclenchera automatiquement la suppression dans UserDefaults)
         self.currentUser = nil
-        // Remove user ID from UserDefaults
-        UserDefaults.standard.removeObject(forKey: "userId")
-        print("🗑️ User ID supprimé de UserDefaults")
         print("✅ Déconnexion terminée - Session nettoyée")
     }
     
@@ -806,7 +770,7 @@ class AuthService: ObservableObject {
 }
 
 // MARK: - Auth Errors
-enum AuthError: LocalizedError, Equatable {
+enum AuthError: LocalizedError {
     case invalidCredentials
     case invalidResponse
     case serverError(Int)

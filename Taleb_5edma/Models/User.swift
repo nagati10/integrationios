@@ -9,7 +9,7 @@ import Foundation
 
 /// Modèle représentant un utilisateur de l'application
 /// Correspond aux DTOs du backend (CreateUserDto, UpdateUserDto)
-struct User: Codable, Identifiable, Equatable {
+struct User: Codable, Identifiable {
     let id: String
     let email: String
     let nom: String  // ⚠️ Le backend utilise "nom" au lieu de "username"
@@ -18,25 +18,6 @@ struct User: Codable, Identifiable, Equatable {
     var role: String?  // Rôle de l'utilisateur (optionnel)
     var createdAt: Date?
     var updatedAt: Date?
-    
-    // User Status & Settings
-    var modeExamens: Bool?       // Exam mode enabled/disabled
-    var is_archive: Bool?        // Account archived status
-    var is_Organization: Bool?   // Organization account flag
-    var isOnline: Bool?          // Current online status
-    var Currentstatus: String?   // Current status (active, busy, etc.)
-    var lastSeen: Date?          // Last activity timestamp
-    
-    // User Stats & Activity
-    var TrustXP: Int?            // Trust/Experience points
-    var likedOffres: [String]?   // Array of liked offer IDs
-    var chats: [String]?         // Array of chat IDs
-    var blockedUsers: [String]?  // Array of blocked user IDs
-    
-    // CV Analysis Fields (from AI CV Analysis feature)
-    var cvExperience: [String]?  // Work experience entries from CV
-    var cvEducation: [String]?   // Education history entries from CV
-    var cvSkills: [String]?      // Skills extracted from CV
     
     enum CodingKeys: String, CodingKey {
         case id = "_id"
@@ -47,25 +28,6 @@ struct User: Codable, Identifiable, Equatable {
         case role
         case createdAt
         case updatedAt
-        
-        // Status & Settings
-        case modeExamens
-        case is_archive
-        case is_Organization
-        case isOnline
-        case Currentstatus
-        case lastSeen
-        
-        // Stats & Activity
-        case TrustXP
-        case likedOffres
-        case chats
-        case blockedUsers
-        
-        // CV Fields
-        case cvExperience
-        case cvEducation
-        case cvSkills
     }
 }
 
@@ -100,8 +62,6 @@ struct SignUpRequest: Codable {
     let email: String  // Requis
     let password: String  // Requis
     let contact: String  // ⚠️ Le backend attend "contact" (requis)
-    let role: String    // Rôle de l'utilisateur ("user" ou "admin")
-    let is_Organization: Bool? // Pour différencier les entreprises
     let image: String?  // Optionnel selon le backend
     
     enum CodingKeys: String, CodingKey {
@@ -109,8 +69,6 @@ struct SignUpRequest: Codable {
         case email
         case password
         case contact
-        case role
-        case is_Organization
         case image
     }
 }

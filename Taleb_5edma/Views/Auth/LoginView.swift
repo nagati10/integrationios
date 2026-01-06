@@ -113,13 +113,16 @@ struct LoginView: View {
                 }
             }
         }
-        .sheet(isPresented: $showSignUp, onDismiss: {
-            viewModel.resetSignUpFields()
-        }) {
+        .sheet(isPresented: $showSignUp) {
             SignUpView(viewModel: viewModel)
         }
         .sheet(isPresented: $showForgotPassword) {
             ForgotPasswordFlowView(authService: viewModel.authService)
+        }
+        .alert("Erreur", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.errorMessage ?? "Une erreur est survenue")
         }
     }
 }

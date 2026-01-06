@@ -10,29 +10,27 @@ import SwiftUI
 /// Vue pour afficher et gérer les offres favorites
 struct FavoritesView: View {
     @StateObject private var favoritesService = FavoritesService.shared
-    @StateObject private var viewModel = OffreViewModel()
+    @State private var allJobs: [Job] = []
     @State private var isLoading = false
     @State private var searchText = ""
     @State private var showingComparison = false
-    @State private var selectedOffre: Offre?
     @Environment(\.dismiss) var dismiss
     
     // Callback optionnel pour naviguer vers les offres
     var onBrowseOffers: (() -> Void)?
     
-    private var favoriteOffres: [Offre] {
-        favoritesService.filterFavoriteOffres(from: viewModel.offres)
+    private var favoriteJobs: [Job] {
+        favoritesService.filterFavoriteJobs(from: allJobs)
     }
     
-    var filteredOffres: [Offre] {
+    var filteredJobs: [Job] {
         if searchText.isEmpty {
-            return favoriteOffres
+            return favoriteJobs
         } else {
-            return favoriteOffres.filter { offre in
-                offre.title.localizedCaseInsensitiveContains(searchText) ||
-                offre.company.localizedCaseInsensitiveContains(searchText) ||
-                offre.location.address.localizedCaseInsensitiveContains(searchText) ||
-                (offre.location.city?.localizedCaseInsensitiveContains(searchText) ?? false)
+            return favoriteJobs.filter { job in
+                job.title.localizedCaseInsensitiveContains(searchText) ||
+                job.company.localizedCaseInsensitiveContains(searchText) ||
+                job.location.localizedCaseInsensitiveContains(searchText)
             }
         }
     }
@@ -44,29 +42,27 @@ struct FavoritesView: View {
             
             VStack(spacing: 0) {
                 // Barre de recherche
-                if !favoriteOffres.isEmpty {
+                if !favoriteJobs.isEmpty {
                     searchBarSection
                     
                     // Bouton de comparaison (visible uniquement s'il y a au moins 2 offres favorites)
-                    if favoriteOffres.count >= 2 {
+                    if favoriteJobs.count >= 2 {
                         comparisonButtonSection
                     }
                 }
                 
                 // Contenu
-                if isLoading || viewModel.isLoading {
+                if isLoading {
                     ProgressView()
                         .scaleEffect(1.5)
                         .tint(AppColors.primaryRed)
-                } else if filteredOffres.isEmpty && !isLoading {
+                } else if filteredJobs.isEmpty && !isLoading {
                     emptyStateView
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 16) {
-                            ForEach(filteredOffres) { offre in
-                                OffreCardView(offre: offre, onCardClick: {
-                                    selectedOffre = offre
-                                })
+                            ForEach(filteredJobs) { job in
+                                JobCardView(job: job)
                             }
                         }
                         .padding()
@@ -89,10 +85,7 @@ struct FavoritesView: View {
             }
         }
         .onAppear {
-            loadFavoriteOffres()
-        }
-        .sheet(item: $selectedOffre) { offre in
-            OffreDetailView(offre: offre, viewModel: viewModel)
+            loadFavoriteJobs()
         }
         .sheet(isPresented: $showingComparison) {
             OfferComparisonView()
@@ -203,14 +196,13 @@ struct FavoritesView: View {
     
     // MARK: - Helper Methods
     
-    private func loadFavoriteOffres() {
+    private func loadFavoriteJobs() {
         isLoading = true
         
-        Task {
-            await viewModel.loadOffres()
-            await MainActor.run {
-                isLoading = false
-            }
+        // Charger toutes les offres disponibles (sera remplacé par un appel API)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            allJobs = sampleJobs
+            isLoading = false
         }
     }
 }

@@ -56,12 +56,6 @@ struct ContentView: View {
         return !OnboardingViewModel.hasCompletedOnboarding(for: userId)
     }
     
-    /// Calcule si le compte est une entreprise directement depuis currentUser
-    /// Cette propriété calculée garantit que l'interface correcte s'affiche immédiatement
-    private var isEnterpriseAccount: Bool {
-        return authService.currentUser?.is_Organization == true
-    }
-    
     // MARK: - Body
     
     /// Structure principale de la vue avec navigation conditionnelle
@@ -72,19 +66,10 @@ struct ContentView: View {
             if authService.isAuthenticated {
                 // Utilisateur connecté : vérifier le statut d'onboarding
                 if !shouldShowOnboarding {
-                    // L'utilisateur a complété l'onboarding : vérifier le type de compte
-                    // Si c'est une entreprise (is_Organization == true), afficher EnterpriseHomeView
-                    // Sinon, afficher le DashboardView normal pour les clients
-                    if isEnterpriseAccount {
-                        // Compte entreprise : afficher l'interface entreprise
-                        EnterpriseHomeView()
-                            .environmentObject(authService)
-                    } else {
-                        // Compte client normal : afficher le tableau de bord principal
-                        // DashboardView contient la TabView avec tous les onglets de l'application
-                        DashboardView()
-                            .environmentObject(authService)
-                    }
+                    // L'utilisateur a complété l'onboarding : afficher le tableau de bord principal
+                    // DashboardView contient la TabView avec tous les onglets de l'application
+                    DashboardView()
+                        .environmentObject(authService)
                 } else {
                     // Premier lancement pour ce compte : afficher l'écran d'onboarding
                     // Permet à l'utilisateur de définir ses préférences (niveau d'étude, domaine, etc.)
@@ -129,7 +114,6 @@ struct ContentView: View {
             if let userId = authService.currentUser?.id {
                 print("🔍 ContentView - ID Utilisateur: \(userId)")
                 print("🔍 ContentView - Onboarding complété: \(!shouldShowOnboarding)")
-                print("🔍 ContentView - Compte entreprise: \(isEnterpriseAccount)")
             }
             #endif
             // Vérifier le statut d'onboarding au chargement
@@ -144,13 +128,6 @@ struct ContentView: View {
                 // Utilisateur s'est déconnecté : réinitialiser l'état d'onboarding
                 hasCompletedOnboarding = false
             }
-        }
-        .onChange(of: authService.currentUser) { oldValue, newValue in
-            // Force UI refresh when user data changes (especially is_Organization)
-            #if DEBUG
-            print("🔄 ContentView - User changed: is_Organization = \(newValue?.is_Organization ?? false)")
-            print("🔄 ContentView - isEnterpriseAccount: \(isEnterpriseAccount)")
-            #endif
         }
     }
     

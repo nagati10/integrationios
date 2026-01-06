@@ -2,28 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Identifiant Client Google -->
-    <key>GIDClientID</key>
-    <string>882792179103-k0qi2c64l0rj0vhhofpu0st0m3gkuah8jd.apps.googleusercontent.com</string>
-
-    <!-- Configuration du schéma d’URL pour Google Sign-In -->
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <!-- REVERSED_CLIENT_ID -->
-                <string>com.googleusercontent.apps.882792179103-k0qi2c64l0rj0vhhofpu0st0m3gkuah8jd</string>
-            </array>
-        </dict>
-    </array>
-    <key>NSCameraUsageDescription</key>
-    <string>Nous avons besoin d'accéder à votre caméra pour les appels vidéo.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Nous avons besoin d'accéder à votre microphone pour envoyer des messages vocaux et les appels audio.</string>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Nous avons besoin d'accéder à votre galerie pour envoyer des photos et vidéos.</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Cette application a besoin d'accéder à votre localisation pour sélectionner une position sur la carte.</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Taleb 5edma</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.882792179103-k0qi2c64l0rj0vhhofpu0st0m3gkuah8jd</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>882792179103-k0qi2c64l0rj0vhhofpu0st0m3gkuah8jd.apps.googleusercontent.com</string>
 </dict>
 </plist>

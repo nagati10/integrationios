@@ -48,11 +48,11 @@ struct APIConfig {
     /// URL de base pour la production (Render)
     /// Format : https://talleb-5edma.onrender.com
     /// ✅ Backend déployé sur Render
-    ///
+    /// 
     /// 🔧 CONFIGURATION IMPORTANTE:
     /// Si le backend retourne 404, essayez de changer cette valeur :
     /// - Avec préfixe: "https://talleb-5edma.onrender.com/api" (et enlever /api des endpoints)
-    ///- Sans préfixe: "https://talleb-5edma.onrender.com" (et garder /api dans les endpoints)
+    /// - Sans préfixe: "https://talleb-5edma.onrender.com" (et garder /api dans les endpoints)
     static let productionBaseURL: String = "https://talleb-5edma.onrender.com"
     
     /// Indique si le préfixe /api doit être ajouté dans les endpoints
@@ -372,8 +372,7 @@ struct APIConfig {
     // MARK: - Configuration
     
     /// Timeout pour les requêtes réseau (en secondes)
-    /// Augmenté à 60s pour permettre au backend Render de se réveiller
-    static let requestTimeout: TimeInterval = 60.0
+    static let requestTimeout: TimeInterval = 30.0
     
     /// Vérifie si l'URL de base est configurée
     static var isConfigured: Bool {
@@ -385,19 +384,12 @@ struct APIConfig {
     
     /// Endpoint pour analyser la routine avec IA (POST /ai/routine/analyze)
     static var analyzeRoutineEndpoint: String {
-        return endpoint("/cv-ai/analyze")
+        return endpoint("/ai/routine/analyze")
     }
     
-    // MARK: - AICV Endpoints
-    
-    /// Endpoint pour analyser un CV avec IA (POST /cv-ai/extract-cv)
-    static var analyzeCVEndpoint: String {
-        return endpoint("/cv-ai/extract-cv")
-    }
-    
-    /// Endpoint pour enregistrer le profil depuis un CV (PATCH /user/me/cv/profile)
-    static var saveCVToProfileEndpoint: String {
-        return endpoint("/user/me/cv/profile")
+    /// Endpoint pour analyser la routine avec IA améliorée (POST /ai/routine/analyze-enhanced)
+    static var analyzeRoutineEnhancedEndpoint: String {
+        return endpoint("/ai/routine/analyze-enhanced")
     }
     
     // MARK: - Chat Endpoints
@@ -405,11 +397,6 @@ struct APIConfig {
     /// Endpoint pour créer ou obtenir un chat existant (POST /chat)
     static var createChatEndpoint: String {
         return endpoint("/chat")
-    }
-    
-    /// Alias pour createChatEndpoint (compatibilité avec ChatRepository)
-    static var createOrGetChatEndpoint: String {
-        return createChatEndpoint
     }
     
     /// Endpoint pour envoyer un message dans un chat (POST /chat/{chatId}/message)
@@ -466,19 +453,9 @@ struct APIConfig {
         return endpoint("/chat/\(chatId)/accept")
     }
     
-    /// Alias pour acceptChatEndpoint (compatibilité avec ChatRepository)
-    static func acceptCandidateEndpoint(chatId: String) -> String {
-        return acceptChatEndpoint(chatId: chatId)
-    }
-    
     /// Endpoint pour vérifier si un utilisateur peut appeler pour une offre (GET /chat/can-call/{offerId})
     static func canCallEndpoint(offerId: String) -> String {
         return endpoint("/chat/can-call/\(offerId)")
-    }
-    
-    /// Alias pour canCallEndpoint (compatibilité avec ChatRepository)
-    static func canMakeCallEndpoint(offerId: String) -> String {
-        return canCallEndpoint(offerId: offerId)
     }
     
     /// Endpoint pour uploader un fichier média de chat (POST /chat/upload)
@@ -486,23 +463,27 @@ struct APIConfig {
         return endpoint("/chat/upload")
     }
     
-    /// Alias pour uploadChatMediaEndpoint (compatibilité avec ChatRepository)
-    static var uploadMediaEndpoint: String {
-        return uploadChatMediaEndpoint
-    }
-    
-    /// Endpoint pour récupérer les messages d'un chat (GET /chat/{chatId}/messages)
-    static func getMessagesEndpoint(chatId: String) -> String {
-        return getChatMessagesEndpoint(chatId: chatId)
-    }
-    
     /// Endpoint pour marquer les messages comme lus (PATCH /chat/{chatId}/mark-read)
     static func markMessagesReadEndpoint(chatId: String) -> String {
         return endpoint("/chat/\(chatId)/mark-read")
     }
     
-    /// Alias pour markMessagesReadEndpoint (compatibilité avec ChatRepository)
-    static func markMessagesAsReadEndpoint(chatId: String) -> String {
-        return markMessagesReadEndpoint(chatId: chatId)
+    // MARK: - Schedule Endpoints (Upload PDF emploi du temps)
+    
+    /// Endpoint pour uploader et traiter un PDF d'emploi du temps (POST /schedule/process)
+    static var scheduleProcessEndpoint: String {
+        return endpoint("/schedule/process")
+    }
+    
+    /// Endpoint pour créer des événements automatiquement depuis un emploi du temps (POST /schedule/create-events)
+    static var scheduleCreateEventsEndpoint: String {
+        return endpoint("/schedule/create-events")
+    }
+    
+    // MARK: - Matching IA Endpoints
+    
+    /// Endpoint pour l'analyse de matching IA (POST /ai-matching/analyze)
+    static var matchingAnalyzeEndpoint: String {
+        return endpoint("/ai-matching/analyze")
     }
 }

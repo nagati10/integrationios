@@ -5,32 +5,68 @@
 //  Created by Apple on 10/11/2025.
 //
 
+//
+//  ChatView.swift
+//  Taleb_5edma
+//
+
 import SwiftUI
-import UIKit
 
 struct ChatView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var authService: AuthService
-    @StateObject private var viewModel: ChatViewModel
+    let job: Job?
     let offre: Offre?
-    let currentUserId: String?  // Add current user ID
-    let chatId: String?  // Optional chat ID to load specific chat
-    let candidateInfo: ChatModels.ChatUser?  // Optional candidate info for displaying profile
     
-    // Media viewer state
-    @State private var showMediaViewer = false
-    @State private var selectedMediaUrl: String?
-    @State private var selectedMediaType: MediaViewerSheet.MediaType = .image
+    // Service de chat
+    @StateObject private var chatService = ChatService()
     
-    // AI training state
-    @State private var showAITraining = false
+    // Service d'offres pour récupérer l'offre complète
+    private let offreService = OffreService()
     
-    init(offre: Offre? = nil, currentUserId: String? = nil, chatId: String? = nil, candidateInfo: ChatModels.ChatUser? = nil) {
+    // État du chat
+    @State private var currentChat: Chat?
+    @State private var messages: [Message] = []
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    
+    // Offre complète avec userId
+    @State private var completeOffre: Offre?
+    
+    // Contenu du champ de texte situé en bas de l'écran
+    @State private var messageText = ""
+    // Présente la feuille d'appel audio
+    @State private var showingCall = false
+    // Présente la feuille d'appel vidéo
+    @State private var showingVideoCall = false
+    
+    init(job: Job? = nil, offre: Offre? = nil) {
+        self.job = job
         self.offre = offre
-        self.currentUserId = currentUserId
-        self.chatId = chatId
-        self.candidateInfo = candidateInfo
-        self._viewModel = StateObject(wrappedValue: ChatViewModel(offre: offre, currentUserId: currentUserId))
+    }
+    
+    // Propriétés calculées pour obtenir l'ID du créateur de l'offre et de l'offre
+    /// L'ID du créateur de l'offre (userId) est utilisé comme "entreprise" dans CreateChatRequest
+    /// Le champ "entreprise" dans l'API correspond à l'ID de l'utilisateur qui a créé l'offre
+    private var entrepriseId: String? {
+        // Utiliser l'offre complète si disponible (avec userId), sinon utiliser l'offre initiale
+        let offreToUse = completeOffre ?? offre
+        if let offre = offreToUse {
+            // offre.userId est l'ID de l'utilisateur créateur de l'offre
+            // C'est cet ID qui doit être utilisé comme "entreprise" dans CreateChatRequest
+            return offre.userId
+        }
+        // Pour Job, on n'a pas l'ID du créateur directement
+        // On pourrait le récupérer depuis le backend si nécessaire
+        return nil
+    }
+    
+    private var offerId: String? {
+        return offre?.id ?? job?.id
+    }
+    
+    private var companyName: String {
+        return offre?.company ?? job?.company ?? "Employeur"
     }
     
     var body: some View {
@@ -40,468 +76,323 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 // Top Bar
                 ChatTopBar(
-                    companyName: getChatTitle(),
-                    candidateInfo: candidateInfo,
-                    showAITraining: offre != nil && viewModel.isAccepted, // Show when offre exists AND user is accepted
+                    companyName: companyName,
                     onBack: { dismiss() },
-                    onCall: { viewModel.initiateCall(isVideoCall: false) },
-                    onVideoCall: { viewModel.initiateCall(isVideoCall: true) },
-                onAITraining: { 
-                    if viewModel.isCurrentUserOfferCreator(offre: offre!) {
-                        viewModel.sendInterviewInvitation()
-                    } else {
-                        showAITraining = true 
-                    }
-                }
-            )
+                    onCall: { showingCall = true },
+                    onVideoCall: { showingVideoCall = true }
+                )
                 
-                // Messages or Chat List
-                if viewModel.showChatList {
-                    ChatListView(
-                        chats: viewModel.userChats,
-                        offerTitle: offre?.title,
-                        onChatSelected: { chatId in
-                            viewModel.selectChat(chatId)
-                        },
-                        onDismiss: {
-                            viewModel.showChatList = false
-                            dismiss()
+                // Messages
+                if isLoading && messages.isEmpty {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: AppColors.primaryRed))
+                    Spacer()
+                } else if let error = errorMessage {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 48))
+                            .foregroundColor(AppColors.primaryRed)
+                        Text(error)
+                            .font(.system(size: 16))
+                            .foregroundColor(AppColors.mediumGray)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        Button("Réessayer") {
+                            loadChat()
                         }
-                    )
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(AppColors.primaryRed)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                    Spacer()
                 } else {
-                    // Normal chat messages
-                    if viewModel.isLoading && viewModel.messages.isEmpty {
-                        Spacer()
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: AppColors.primaryRed))
-                        Spacer()
-                    } else if let error = viewModel.errorMessage {
-                        Spacer()
-                        VStack(spacing: 12) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.system(size: 48))
-                                .foregroundColor(AppColors.primaryRed)
-                            Text(error)
-                                .font(.system(size: 16))
-                                .foregroundColor(AppColors.mediumGray)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                            Button("Réessayer") {
-                                viewModel.initializeChat()
-                            }
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(AppColors.primaryRed)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
-                        }
-                        Spacer()
-                    } else {
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                LazyVStack(spacing: 12) {
-                                    ForEach(viewModel.messages) { message in
-                                        Group {
-                                            switch message.type {
-                                            case .text:
-                                                ChatMessageView(message: message)
-                                                    .id(message.id)
-                                            case .audio:
-                                                AudioMessageView(
-                                                    message: Message(
-                                                        id: message.id,
-                                                        chatId: nil,
-                                                        senderId: nil,
-                                                        content: message.text,
-                                                        type: .audio,
-                                                        mediaUrl: message.mediaUrl,
-                                                        fileName: message.fileName,
-                                                        duration: message.duration
-                                                    ),
-                                                    isSent: message.isSent,
-                                                    isPlaying: viewModel.currentlyPlayingAudioId == message.id,
-                                                    onPlayTapped: { viewModel.playAudio(url: message.mediaUrl ?? "", messageId: message.id) },
-                                                    onStopTapped: { viewModel.stopAudio() }
-                                                )
-                                                .id(message.id)
-                                            case .image:
-                                                ImageMessageView(
-                                                    message: Message(
-                                                        id: message.id,
-                                                        chatId: nil,
-                                                        senderId: nil,
-                                                        content: nil,
-                                                        type: .image,
-                                                        mediaUrl: message.mediaUrl
-                                                    ),
-                                                    isSent: message.isSent,
-                                                    onTap: {
-                                                        selectedMediaUrl = message.mediaUrl
-                                                        selectedMediaType = .image
-                                                        showMediaViewer = true
-                                                    }
-                                                )
-                                                .id(message.id)
-                                            case .video:
-                                                VideoMessageView(
-                                                    message: Message(
-                                                        id: message.id,
-                                                        chatId: nil,
-                                                        senderId: nil,
-                                                        content: nil,
-                                                        type: .video,
-                                                        mediaUrl: message.mediaUrl,
-                                                        duration: message.duration
-                                                    ),
-                                                    isSent: message.isSent,
-                                                    onTap: {
-                                                        selectedMediaUrl = message.mediaUrl
-                                                        selectedMediaType = .video
-                                                        showMediaViewer = true
-                                                    }
-                                                )
-                                                .id(message.id)
-                                            case .emoji:
-                                                EmojiMessageView(
-                                                    message: Message(
-                                                        id: message.id,
-                                                        chatId: nil,
-                                                        senderId: nil,
-                                                        content: message.text,
-                                                        type: .emoji
-                                                    ),
-                                                    isSent: message.isSent
-                                                )
-                                                .id(message.id)
-                                            case .interviewResult:
-                                                if let analysis = message.interviewAnalysis {
-                                                    InterviewResultBubbleView(
-                                                        analysis: analysis,
-                                                        isSent: message.isSent
-                                                    )
-                                                    .id(message.id)
-                                                } else {
-                                                    Text("⚠️ Missing Analysis Data")
-                                                        .font(.caption)
-                                                        .foregroundColor(.red)
-                                                        .padding(8)
-                                                        .background(Color.red.opacity(0.1))
-                                                        .cornerRadius(8)
-                                                }
-                                            default:
-                                                ChatMessageView(message: message)
-                                                    .id(message.id)
-                                            }
-                                        }
-                                    }
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(messages) { message in
+                                    ChatMessageBubble(message: message)
+                                        .id(message.id)
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 16)
                             }
-                            .onChange(of: viewModel.messages.count) { _, _ in
-                                if let lastMessage = viewModel.messages.last {
-                                    withAnimation {
-                                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                                    }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 16)
+                        }
+                        .onChange(of: messages.count) { _, _ in
+                            // Scroll vers le dernier message
+                            if let lastMessage = messages.last {
+                                withAnimation {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
                                 }
                             }
                         }
-                        
-                        // Input Bar
-                        ChatInputBar(viewModel: viewModel)
                     }
                 }
+                
+                // Input Bar
+                ChatInputBar(
+                    text: $messageText,
+                    onSend: sendMessage,
+                    isLoading: isLoading
+                )
             }
         }
         .navigationBarHidden(true)
-        // Removed .fullScreenCover for CallView - CallCoordinator handles navigation globally
-        .fullScreenCover(isPresented: $showMediaViewer) {
-            if let mediaUrl = selectedMediaUrl {
-                MediaViewerSheet(
-                    mediaUrl: mediaUrl,
-                    mediaType: selectedMediaType
-                )
-            }
-        }
-        .sheet(isPresented: $showAITraining) {
-            if let offre = offre, let currentUser = authService.currentUser {
-                // If I am the student (candidateInfo == nil), I enter coaching mode
-                // If I am the enterprise, I shouldn't see this sheet directly, but send invite
-                // Currently button logic ensures only student sees "Coach" button which sets showAITraining
-                AIInterviewTrainingView(user: currentUser, offre: offre, initialMode: .coaching)
-            }
-        }
         .onAppear {
-            // If chatId is provided, select that specific chat
-            if let chatId = chatId {
-                print("📱 ChatView: Loading specific chat: \(chatId)")
-                viewModel.selectChat(chatId)
+            // Si l'offre n'a pas de userId, récupérer l'offre complète depuis le backend
+            if let offre = offre, offre.userId == nil {
+                loadCompleteOffre()
             } else {
-                // Otherwise, use normal initialization (create/get chat)
-                viewModel.initializeChat()
+                loadChat()
             }
         }
-    }
-    
-    private func getChatTitle() -> String {
-        if viewModel.showChatList {
-            return offre?.company ?? "Mes Conversations"
-        } else {
-            return offre?.company ?? "Employeur"
+        .sheet(isPresented: $showingCall) {
+            CallView(isVideoCall: false)
+        }
+        .sheet(isPresented: $showingVideoCall) {
+            CallView(isVideoCall: true)
         }
     }
-}
-
-// MARK: - Chat List View
-
-struct ChatListView: View {
-    let chats: [ChatModels.GetUserChatsResponse]
-    let offerTitle: String?
-    let onChatSelected: (String) -> Void
-    let onDismiss: () -> Void
     
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Button(action: onDismiss) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(AppColors.white)
-                        .frame(width: 24, height: 24)
+    // MARK: - Methods
+    
+    /// Charge l'offre complète depuis le backend pour obtenir le userId
+    private func loadCompleteOffre() {
+        guard let offerId = offerId else {
+            errorMessage = "Impossible de charger l'offre. ID manquant."
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        print("🟢 ChatView - Chargement de l'offre complète pour obtenir userId...")
+        print("   - Offre ID: \(offerId)")
+        
+        Task {
+            do {
+                let fullOffre = try await offreService.getOffreById(offerId)
+                await MainActor.run {
+                    self.completeOffre = fullOffre
+                    self.isLoading = false
+                    print("✅ ChatView - Offre complète chargée")
+                    print("   - userId (créateur): \(fullOffre.userId ?? "nil")")
+                    
+                    // Maintenant que nous avons l'offre complète, charger le chat
+                    loadChat()
                 }
-                
-                Spacer()
-                
-                Text("Conversations - \(offerTitle ?? "Cette offre")")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppColors.white)
-                    .multilineTextAlignment(.center)
-                
-                Spacer()
-                
-                // Invisible spacer for balance
-                Image(systemName: "chevron.left")
-                    .foregroundColor(.clear)
-                    .frame(width: 24, height: 24)
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Erreur lors du chargement de l'offre: \(error.localizedDescription)"
+                    self.isLoading = false
+                    print("🔴 ChatView - Erreur lors du chargement de l'offre: \(error)")
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                LinearGradient(
-                    gradient: Gradient(colors: [AppColors.primaryRed, AppColors.accentPink]),
-                    startPoint: .leading,
-                    endPoint: .trailing
+        }
+    }
+    
+    /// Charge ou crée le chat avec le créateur de l'offre
+    /// Le champ "entreprise" dans CreateChatRequest doit être l'ID de l'utilisateur créateur de l'offre (offre.userId)
+    private func loadChat() {
+        // Vérifier que nous avons l'ID du créateur de l'offre (offre.userId)
+        guard let creatorId = entrepriseId else {
+            errorMessage = "Impossible de créer le chat. L'ID du créateur de l'offre (userId) est manquant."
+            print("🔴 ChatView - Erreur: offre.userId est nil")
+            if let offre = offre {
+                print("🔴 ChatView - Détails de l'offre:")
+                print("   - Offre ID: \(offre.id)")
+                print("   - Offre title: \(offre.title)")
+                print("   - Offre userId (créateur): \(offre.userId ?? "nil - MANQUANT")")
+                print("   - Offre company: \(offre.company)")
+            }
+            return
+        }
+        
+        // Vérifier que nous avons l'ID de l'offre
+        guard let offerId = offerId else {
+            errorMessage = "Impossible de créer le chat. L'ID de l'offre est manquant."
+            print("🔴 ChatView - Erreur: offerId est nil")
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        print("🟢 ChatView - Création du chat avec:")
+        print("   - entreprise (ID du créateur): \(creatorId) <- offre.userId")
+        print("   - offer (ID de l'offre): \(offerId) <- offre.id")
+        
+        Task {
+            do {
+                // Créer ou obtenir le chat existant
+                // IMPORTANT: Le champ "entreprise" dans CreateChatRequest doit être l'ID de l'utilisateur créateur de l'offre
+                // C'est-à-dire offre.userId, pas l'ID d'une entreprise séparée
+                let chatRequest = CreateChatRequest(
+                    entreprise: creatorId,  // ID de l'utilisateur créateur (offre.userId)
+                    offer: offerId          // ID de l'offre (offre.id)
                 )
-            )
-            
-            // Chat List Content
-            if chats.isEmpty {
-                VStack(spacing: 20) {
-                    Spacer()
-                    
-                    Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 60))
-                        .foregroundColor(AppColors.mediumGray)
-                    
-                    Text("Aucune conversation pour cette offre")
-                        .font(.system(size: 16))
-                        .foregroundColor(AppColors.mediumGray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                    
-                    Text("Les candidats apparaîtront ici lorsqu'ils enverront des messages")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppColors.mediumGray)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                    
-                    Spacer()
+                let chat = try await chatService.createOrGetChat(chatRequest)
+                
+                await MainActor.run {
+                    self.currentChat = chat
+                    self.isLoading = false
+                    print("✅ ChatView - Chat créé/récupéré avec succès: \(chat.id)")
                 }
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(chats, id: \.id) { chat in
-                            ChatListItemView(chat: chat) {
-                                onChatSelected(chat.id)
-                            }
-                        }
+                
+                // Charger les messages
+                await loadMessages()
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Erreur lors de la création du chat: \(error.localizedDescription)"
+                    self.isLoading = false
+                    print("🔴 ChatView - Erreur lors de la création du chat: \(error)")
+                    if let chatError = error as? ChatError {
+                        print("🔴 ChatView - Type d'erreur: \(chatError)")
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 20)
+                }
+            }
+        }
+    }
+    
+    /// Charge les messages du chat
+    private func loadMessages() async {
+        guard let chatId = currentChat?.id else { return }
+        
+        do {
+            let response = try await chatService.getChatMessages(chatId: chatId, page: 1, limit: 50)
+            await MainActor.run {
+                self.messages = response.messages
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Erreur lors du chargement des messages: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    /// Envoie un message
+    private func sendMessage() {
+        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let chatId = currentChat?.id else { return }
+        
+        let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        messageText = ""
+        isLoading = true
+        
+        Task {
+            do {
+                let messageRequest = SendMessageRequest(content: text, type: .text)
+                let newMessage = try await chatService.sendMessage(chatId: chatId, messageRequest)
+                
+                await MainActor.run {
+                    self.messages.append(newMessage)
+                    self.isLoading = false
+                }
+                
+                // Marquer les messages comme lus
+                try? await chatService.markMessagesAsRead(chatId: chatId)
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = "Erreur lors de l'envoi: \(error.localizedDescription)"
+                    self.isLoading = false
+                    // Remettre le texte dans le champ
+                    self.messageText = text
                 }
             }
         }
     }
 }
 
-// MARK: - Chat List Item View
+// MARK: - Chat Message Bubble
 
-struct ChatListItemView: View {
-    let chat: ChatModels.GetUserChatsResponse
-    let onTap: () -> Void
+struct ChatMessageBubble: View {
+    let message: Message
+    @EnvironmentObject var authService: AuthService
     
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                // Candidate Avatar
-                ZStack(alignment: .topTrailing) {
-                    Circle()
-                        .fill(AppColors.mediumGray)
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .foregroundColor(AppColors.white)
-                        )
-                    
-                    // Unread badge
-                    if let unreadCount = chat.unreadEntreprise, unreadCount > 0 {
-                        Circle()
-                            .fill(AppColors.primaryRed)
-                            .frame(width: 20, height: 20)
-                            .overlay(
-                                Text("\(min(unreadCount, 9))")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
-                            .offset(x: 5, y: -5)
-                    }
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(chat.candidate?.nom ?? "Candidat inconnu")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(AppColors.black)
-                        .lineLimit(1)
-                    
-                    Text(chat.lastMessage ?? "Aucun message")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppColors.mediumGray)
-                        .lineLimit(1)
-                    
-                    if let lastActivity = chat.lastActivity {
-                        Text(formatLastActivity(lastActivity))
-                            .font(.system(size: 12))
-                            .foregroundColor(AppColors.mediumGray)
-                    }
-                }
-                
-                Spacer()
-                
-                // Message type indicator
-                if let messageType = chat.lastMessageType {
-                    Image(systemName: getMessageTypeIcon(messageType))
-                        .foregroundColor(AppColors.mediumGray)
-                        .font(.system(size: 16))
-                }
-                
-                Image(systemName: "chevron.right")
-                    .foregroundColor(AppColors.mediumGray)
-                    .font(.system(size: 14))
-            }
-            .padding(16)
-            .background(AppColors.white)
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-        }
-        .buttonStyle(PlainButtonStyle())
+    private var isSent: Bool {
+        message.senderId == authService.currentUser?.id
     }
     
-    private func getMessageTypeIcon(_ messageType: String) -> String {
-        switch messageType {
-        case "image": return "photo"
-        case "video": return "video"
-        case "audio": return "mic"
-        case "emoji": return "face.smiling"
-        default: return "text.bubble"
-        }
-    }
-    
-    private func formatLastActivity(_ isoDate: String) -> String {
+    private var timestamp: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-        formatter.timeZone = TimeZone(abbreviation: "UTC")
-        
-        guard let date = formatter.date(from: isoDate) else { return "" }
-        
-        let calendar = Calendar.current
-        let now = Date()
-        
-        let components = calendar.dateComponents([.minute, .hour, .day], from: date, to: now)
-        
-        if let days = components.day, days > 0 {
-            return "Il y a \(days) j"
-        } else if let hours = components.hour, hours > 0 {
-            return "Il y a \(hours) h"
-        } else if let minutes = components.minute, minutes > 0 {
-            return "Il y a \(minutes) min"
-        } else {
-            return "À l'instant"
-        }
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: message.createdAt ?? Date())
     }
-}
-
-// MARK: - Chat Message View
-
-struct ChatMessage: Identifiable {
-    let id: String
-    let text: String
-    let isSent: Bool
-    let timestamp: String
-    let showAvatar: Bool
-    let type: MessageType
-    let mediaUrl: String?
-    let duration: String?
-    let fileName: String?
-    let interviewAnalysis: ChatModels.AiInterviewAnalysis?
-}
-
-struct ChatMessageView: View {
-    let message: ChatMessage
     
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            if !message.isSent && message.showAvatar {
+            if !isSent {
                 Circle()
                     .fill(AppColors.mediumGray)
                     .frame(width: 28, height: 28)
-            } else if !message.isSent {
-                Spacer().frame(width: 28)
             }
             
-            VStack(alignment: message.isSent ? .trailing : .leading, spacing: 4) {
-                Text(message.text)
-                    .font(.system(size: 16))
-                    .foregroundColor(message.isSent ? AppColors.white : AppColors.black)
+            VStack(alignment: isSent ? .trailing : .leading, spacing: 4) {
+                // Contenu du message selon le type
+                if message.type == .text {
+                    Text(message.content)
+                        .font(.system(size: 16))
+                        .foregroundColor(isSent ? AppColors.white : AppColors.black)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(isSent ? AppColors.primaryRed : AppColors.lightGray.opacity(0.3))
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                } else if message.type == .image, let mediaUrl = message.mediaUrl {
+                    AsyncImage(url: URL(string: mediaUrl)) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    } placeholder: {
+                        ProgressView()
+                    }
+                    .frame(maxWidth: 200, maxHeight: 200)
+                    .cornerRadius(12)
+                } else {
+                    // Autres types de messages (audio, video, file)
+                    HStack {
+                        Image(systemName: iconForMessageType(message.type))
+                            .foregroundColor(isSent ? AppColors.white : AppColors.primaryRed)
+                        Text(message.content)
+                            .font(.system(size: 14))
+                            .foregroundColor(isSent ? AppColors.white : AppColors.black)
+                    }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(message.isSent ? AppColors.primaryRed : AppColors.lightGray.opacity(0.3))
+                    .background(isSent ? AppColors.primaryRed : AppColors.lightGray.opacity(0.3))
                     .clipShape(RoundedRectangle(cornerRadius: 18))
+                }
                 
-                Text(message.timestamp)
+                Text(timestamp)
                     .font(.system(size: 12))
                     .foregroundColor(AppColors.mediumGray)
             }
-            .frame(maxWidth: .infinity, alignment: message.isSent ? .trailing : .leading)
+            .frame(maxWidth: .infinity, alignment: isSent ? .trailing : .leading)
             
-            if message.isSent {
+            if isSent {
                 Spacer().frame(width: 28)
             }
         }
         .padding(.horizontal, 8)
     }
+    
+    private func iconForMessageType(_ type: MessageType) -> String {
+        switch type {
+        case .audio: return "waveform"
+        case .video: return "video.fill"
+        case .file: return "doc.fill"
+        default: return "paperclip"
+        }
+    }
 }
-
-// MARK: - Chat Top Bar
 
 struct ChatTopBar: View {
     let companyName: String
-    let candidateInfo: ChatModels.ChatUser?
-    let showAITraining: Bool
     let onBack: () -> Void
     let onCall: () -> Void
     let onVideoCall: () -> Void
-    let onAITraining: () -> Void
     
     var body: some View {
         HStack {
@@ -511,27 +402,12 @@ struct ChatTopBar: View {
                     .frame(width: 24, height: 24)
             }
             
-            // Display candidate photo if available
-            if let imageUrl = candidateInfo?.image, !imageUrl.isEmpty {
-                AsyncImage(url: URL(string: "\(APIConfig.baseURL)/\(imageUrl)")) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 40, height: 40)
-                        .clipShape(Circle())
-                } placeholder: {
-                    Circle()
-                        .fill(AppColors.mediumGray)
-                        .frame(width: 40, height: 40)
-                }
-            } else {
-                Circle()
-                    .fill(AppColors.mediumGray)
-                    .frame(width: 40, height: 40)
-            }
+            Circle()
+                .fill(AppColors.mediumGray)
+                .frame(width: 40, height: 40)
             
             VStack(alignment: .leading) {
-                Text(candidateInfo?.nom ?? companyName)
+                Text(companyName)
                     .font(.headline)
                     .foregroundColor(AppColors.white)
                 
@@ -541,43 +417,6 @@ struct ChatTopBar: View {
             }
             
             Spacer()
-            
-            // AI Buttons (Coach for Student, Invite for Enterprise)
-            if showAITraining {
-                if candidateInfo == nil {
-                    // Current user is Student (Candidate side) -> Show Coach
-                    Button(action: onAITraining) {
-                        VStack(spacing: 0) {
-                            Image(systemName: "brain.head.profile")
-                                .font(.system(size: 20))
-                            Text("Coach")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                        }
-                        .foregroundColor(AppColors.white)
-                        .frame(width: 44, height: 44)
-                    }
-                } else {
-                    // Current user is Enterprise (Enterprise side) -> Show Invite
-                    Button(action: {
-                        // Call ViewModel to send invitation
-                        // Need to cast onAITraining to specific action or use Notification
-                        // Since ChatTopBar is generic, let's use the closure.
-                        // The parent view (ChatView) should define onAITraining to send invite if Enterprise
-                        onAITraining()
-                    }) { 
-                         VStack(spacing: 0) {
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 20))
-                            Text("Inviter")
-                                .font(.caption2)
-                                .fontWeight(.bold)
-                        }
-                        .foregroundColor(AppColors.white)
-                        .frame(width: 44, height: 44)
-                    }
-                }
-            }
             
             Button(action: onCall) {
                 Image(systemName: "phone")
@@ -603,305 +442,62 @@ struct ChatTopBar: View {
     }
 }
 
-// MARK: - Chat Input Bar
-
 struct ChatInputBar: View {
-    @ObservedObject var viewModel: ChatViewModel
+    @Binding var text: String
+    let onSend: () -> Void
+    let isLoading: Bool
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Emoji Picker
-            if viewModel.showEmojiPicker {
-                EmojiPickerView(
-                    selectedCategory: $viewModel.selectedEmojiCategory,
-                    onEmojiSelected: { viewModel.insertEmoji($0) }
-                )
-                .frame(height: 250)
-                .transition(.move(edge: .bottom))
+        HStack(spacing: 12) {
+            Button(action: { /* Ajouter fichier */ }) {
+                Image(systemName: "plus.circle")
+                    .foregroundColor(AppColors.primaryRed)
+                    .font(.title2)
             }
             
-            // Pending Media
-            if !viewModel.pendingMedia.isEmpty {
-                PendingMediaRow(
-                    media: viewModel.pendingMedia,
-                    onRemove: { viewModel.removePendingMedia($0) },
-                    onSendAll: { viewModel.sendAllPendingMedia() }
-                )
+            Button(action: { /* Camera */ }) {
+                Image(systemName: "camera")
+                    .foregroundColor(AppColors.primaryRed)
+                    .font(.title2)
             }
             
-            // Input Area
-            HStack(spacing: 12) {
-                // Emoji Button
-                Button(action: { 
-                    withAnimation {
-                        viewModel.toggleEmojiPicker()
+            Button(action: { /* Micro */ }) {
+                Image(systemName: "mic")
+                    .foregroundColor(AppColors.primaryRed)
+                    .font(.title2)
+            }
+            
+            TextField("Aa", text: $text)
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .background(AppColors.lightGray.opacity(0.3))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .disabled(isLoading)
+                .onSubmit {
+                    if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        onSend()
                     }
-                }) {
-                    Image(systemName: "face.smiling")
-                        .foregroundColor(viewModel.showEmojiPicker ? AppColors.primaryRed : AppColors.mediumGray)
-                        .font(.title2)
                 }
-                
-                // Attachment Button
-                Button(action: { viewModel.showMediaPicker = true }) {
-                    Image(systemName: "paperclip")
-                        .foregroundColor(AppColors.mediumGray)
-                        .font(.title2)
-                }
-                
-                // Text Field
-                TextField("Message...", text: $viewModel.messageText)
-                    .padding(.horizontal, 12)
-                    .frame(height: 36)
-                    .background(AppColors.lightGray.opacity(0.3))
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
-                    .onSubmit { viewModel.sendTextMessage() }
-                
-                // Send / Mic Button
-                if !viewModel.messageText.isEmpty {
-                    Button(action: { viewModel.sendTextMessage() }) {
-                        Image(systemName: "paperplane.fill")
-                            .foregroundColor(AppColors.primaryRed)
-                            .font(.title2)
-                    }
-                } else if viewModel.isRecording {
-                    // Recording State
-                    HStack {
-                        Text(String(format: "%.0fs", viewModel.recordingDuration))
-                            .foregroundColor(AppColors.primaryRed)
-                            .font(.system(size: 14, weight: .bold))
-                            
-                        Button(action: { viewModel.stopRecordingAndSend() }) {
-                            Image(systemName: "stop.circle.fill")
-                                .foregroundColor(AppColors.primaryRed)
-                                .font(.title2)
-                        }
-                    }
+            
+            Button(action: onSend) {
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: AppColors.primaryRed))
+                        .frame(width: 24, height: 24)
                 } else {
-                    // Mic Button
-                    Button(action: { viewModel.startRecording() }) {
-                        Image(systemName: "mic.fill")
-                            .foregroundColor(AppColors.mediumGray)
-                            .font(.title2)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(AppColors.white)
-        }
-        .sheet(isPresented: $viewModel.showMediaPicker) {
-            MediaPickerView(selectedMedia: $viewModel.pendingMedia)
-        }
-    }
-}
-
-// MARK: - Pending Media Row
-
-struct PendingMediaRow: View {
-    let media: [PendingMedia]
-    let onRemove: (PendingMedia) -> Void
-    let onSendAll: () -> Void
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("\(media.count) fichier(s) sélectionné(s)")
-                    .font(.caption)
-                    .foregroundColor(AppColors.mediumGray)
-                
-                Spacer()
-                
-                Button(action: onSendAll) {
-                    Text("Envoyer tout")
-                        .font(.caption)
-                        .fontWeight(.bold)
+                    Image(systemName: "arrow.up.circle.fill")
                         .foregroundColor(AppColors.primaryRed)
+                        .font(.title2)
                 }
             }
-            .padding(.horizontal, 16)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(media) { item in
-                        ZStack(alignment: .topTrailing) {
-                            if item.type == .image, let image = UIImage(data: item.data) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 80, height: 80)
-                                    .cornerRadius(8)
-                            } else if item.type == .video {
-                                ZStack {
-                                    Rectangle()
-                                        .fill(Color.black)
-                                        .frame(width: 80, height: 80)
-                                        .cornerRadius(8)
-                                    
-                                    Image(systemName: "video.fill")
-                                        .foregroundColor(.white)
-                                }
-                            }
-                            
-                            Button(action: { onRemove(item) }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundColor(.white)
-                                    .background(Color.black.opacity(0.5))
-                                    .clipShape(Circle())
-                            }
-                            .offset(x: 5, y: -5)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            }
+            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
         .background(AppColors.white)
     }
 }
 
-// MARK: - Chat Call View
-
-struct ChatCallView: View {
-    let isVideoCall: Bool
-    let companyName: String
-    let onEndCall: () -> Void
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                gradient: Gradient(colors: [AppColors.primaryRed, AppColors.accentPink]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            
-            VStack(spacing: 40) {
-                // En-tête
-                HStack {
-                    Button(action: {
-                        onEndCall()
-                        dismiss()
-                    }) {
-                        Image(systemName: "xmark")
-                            .foregroundColor(.white)
-                            .font(.title2)
-                    }
-                    
-                    Spacer()
-                    
-                    Text(isVideoCall ? "Appel Vidéo" : "Appel Audio")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "xmark")
-                        .foregroundColor(.clear)
-                        .font(.title2)
-                }
-                .padding()
-                
-                // Avatar/Image
-                Circle()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 120, height: 120)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 50))
-                            .foregroundColor(.white.opacity(0.7))
-                    )
-                
-                // Informations de l'appel
-                VStack(spacing: 8) {
-                    Text(companyName)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                    
-                    Text(isVideoCall ? "Appel vidéo en cours..." : "Appel audio en cours...")
-                        .font(.body)
-                        .foregroundColor(.white.opacity(0.8))
-                    
-                    Text("00:45")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(.top, 20)
-                }
-                
-                Spacer()
-                
-                // Contrôles d'appel
-                HStack(spacing: 30) {
-                    Button(action: { /* Micro */ }) {
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Image(systemName: "mic.slash")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                            )
-                    }
-                    
-                    Button(action: {
-                        onEndCall()
-                        dismiss()
-                    }) {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 70, height: 70)
-                            .overlay(
-                                Image(systemName: "phone.down.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                            )
-                    }
-                    
-                    Button(action: { /* Haut-parleur */ }) {
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Image(systemName: "speaker.wave.2.fill")
-                                    .font(.title2)
-                                    .foregroundColor(.white)
-                            )
-                    }
-                }
-                .padding(.bottom, 50)
-            }
-        }
-    }
-}
-
 #Preview {
-    ChatView(offre: Offre(
-        id: "1",
-        title: "Développeur iOS",
-        description: "Développement d'applications mobiles iOS avec SwiftUI",
-        tags: ["Swift", "iOS", "Mobile"],
-        exigences: ["SwiftUI", "UIKit", "API REST"],
-        location: OffreLocation(
-            address: "123 Rue de la Tech",
-            city: "Tunis",
-            country: "Tunisie",
-            coordinates: Coordinates(lat: 36.8, lng: 10.1)
-        ),
-        salary: "2000-3000 DT",
-        company: "TechCorp",
-        expiresAt: "2025-12-31",
-        jobType: "CDI",
-        shift: "Temps plein",
-        isActive: true,
-        images: nil,
-        viewCount: 150,
-        likeCount: 25,
-        userId: "user123",
-        createdAt: nil,
-        updatedAt: nil
-    ))
+    ChatView()
 }

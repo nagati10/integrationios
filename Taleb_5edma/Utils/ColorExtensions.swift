@@ -44,9 +44,8 @@ extension Color {
     /// @deprecated Utilisez AppColors.accentBlue
     static let accentBlue = AppColors.accentBlue
     
-    /// ⚠️ Déprécié - Utilisez `AppColors.accentBlue` à la place
-    /// Alias pour maintenir la compatibilité avec le code existant
-    @available(*, deprecated, message: "Utiliser AppColors.accentBlue pour la cohérence de la palette")
+    /// @deprecated Utilisez AppColors.accentBlue pour la cohérence de la palette
+    @available(*, deprecated, message: "Utilisez AppColors.accentBlue pour la cohérence de la palette")
     static let accentPurple = AppColors.accentBlue
     
     /// @deprecated Utilisez AppColors.accentPink

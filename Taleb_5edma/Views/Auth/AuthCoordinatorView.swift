@@ -23,22 +23,20 @@ struct AuthCoordinatorView: View {
             switch viewModel.currentScreen {
             case .login:
                 LoginView(viewModel: viewModel)
+                    .onAppear {
+                        viewModel.authService = authService
+                    }
             case .signUp:
                 SignUpView(viewModel: viewModel)
+                    .onAppear {
+                        viewModel.authService = authService
+                    }
             case .verification:
                 VerificationView(viewModel: viewModel)
+                    .onAppear {
+                        viewModel.authService = authService
+                    }
             }
-        }
-        .onAppear {
-            // Injection sécurisée du service d'authentification
-            if viewModel.authService !== authService {
-                viewModel.authService = authService
-            }
-        }
-        .alert("Erreur", isPresented: $viewModel.showError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(viewModel.errorMessage ?? "Une erreur est survenue")
         }
     }
 }

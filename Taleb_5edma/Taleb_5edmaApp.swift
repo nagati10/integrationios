@@ -58,37 +58,23 @@ struct Taleb5edma_cursorApp: App {
     /// - Cette vérification se fait en arrière-plan sans bloquer l'interface utilisateur
     /// - Si le token est valide mais l'utilisateur manquant, il sera récupéré depuis le serveur
     /// - Si le token est invalide, la session sera nettoyée et l'utilisateur devra se reconnecter
-    @State private var isSplashActive = true
-    
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                if isSplashActive {
-                    SplashView(isActive: $isSplashActive)
-                        .transition(.opacity)
-                        .zIndex(1)
+            Group {
+                // Vérifier l'état d'authentification pour déterminer quel écran afficher
+                // Cette vérification utilise les données chargées depuis UserDefaults dans l'initializer
+                if authService.isAuthenticated {
+                    // L'utilisateur est authentifié : afficher le contenu principal de l'application
+                    // ContentView gère la navigation vers le Dashboard ou l'Onboarding
+                    ContentView()
+                        .environmentObject(authService)
                 } else {
-                    Group {
-                        // Vérifier l'état d'authentification pour déterminer quel écran afficher
-                        // Cette vérification utilise les données chargées depuis UserDefaults dans l'initializer
-                        if authService.isAuthenticated {
-                            // L'utilisateur est authentifié : afficher le contenu principal de l'application
-                            // ContentView gère la navigation vers le Dashboard ou l'Onboarding
-                            AppRootView {
-                                ContentView()
-                                    .environmentObject(authService)
-                            }
-                        } else {
-                            // L'utilisateur n'est pas authentifié : afficher le flux d'authentification
-                            // AuthCoordinatorView gère la navigation entre Login, SignUp et Verification
-                            AuthCoordinatorView()
-                                    .environmentObject(authService)
-                        }
-                    }
-                    .zIndex(0)
+                    // L'utilisateur n'est pas authentifié : afficher le flux d'authentification
+                    // AuthCoordinatorView gère la navigation entre Login, SignUp et Verification
+                    AuthCoordinatorView()
+                        .environmentObject(authService)
                 }
             }
-            .animation(.easeInOut(duration: 0.5), value: isSplashActive)
             .task {
                 // Restaurer la session au démarrage de l'application
                 // Cette méthode vérifie la validité du token et met à jour les données si nécessaire
